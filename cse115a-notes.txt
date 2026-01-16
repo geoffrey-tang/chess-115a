@@ -1,0 +1,40 @@
+As a player I want the engine to have a chess board representation and to play legal moves so I that basic play is possible
+- Bit boards
+	- Set of 64-bit integers that correspond to positions of a certain piece color & type (e.g. black rooks) resulting in 12 integers
+	- This allows for easy checking of rules/collisions
+		- To check if any square is occupied by something, simply perform a bitwise AND operation and look for non-zero results
+		- We can use XOR to move pieces around by toggling the starting square and target square
+			- If we are capturing pieces, then we need to toggle the captured piece's bitboard to 0 as well
+	- Purpose: 
+		- A significant amount of time is spent here to generate possible moves for any given position, and we'll have to search through millions of moves for any given board state. Bitwise operations are some of the fastest operations a computer can make, which will cut down on time.
+- FEN String to bit board
+	- Ability to translate from a FEN string to a bit board representation for the engine, as 
+- Move generation
+	- Generate the set of legal moves given a certain board position
+	- Must use bit boards & bitwise operators to do so
+- Game rules
+	- Castling
+		- The only case in which two pieces move at the same time
+		- Additionally, we must check for whether the king, A rook, or H rook have moved, and whether the squares on the castling path are under attack
+	- En Passant
+		- The only case in which the capturing piece does not move to the captured piece's position, resulting in a special case for the bit boards
+	- Check
+		- Any move must not result in the king being under direct attack afterwards (this rule should also cover pins)
+	- Checkmate
+		- If there are no moves that relieve the king of being under direct attack, then it is checkmate
+	- Draw
+		- Stalemate: no legal moves, but not in check
+		- By insufficient material: not possible to checkmate with the given material
+			- King vs king
+			- King vs king and bishop
+			- King vs king and knight
+			- King and bishop vs king and bishop of same tile color as opponent bishop 
+		- Threefold repetition: identical position is reached 3 times in a row such that pieces positions are the same and legal move set is the same (e.g. if en passant is available one time and no longer available another time, it doesn't count as a repetition)
+		- 50 move rule: both players make 50 consecutive moves without capturing any pieces or moving any pawns
+- UCI (universal chess interface) for Lichess AND/OR GUI for testing/local play
+	- https://github.com/lichess-bot-devs/lichess-bot
+	- UCI will allow us to just hook the bot up to Lichess and we won't have to worry about creating a graphical user interface for the bot
+	- A GUI would allow us to more freely make modifications to facilitate testing
+		- We might also want to create a GUI to play against the bot locally instead of over Lichess
+		- If we create a GUI, we would also want to create a timer to play locally
+		
