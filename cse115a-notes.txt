@@ -1,4 +1,7 @@
-As a player I want the engine to have a chess board representation and to play legal moves so that basic play is possible
+Sprint 1
+
+As a player I want the engine to have a chess board representation and to play legal moves so that basic play is possible.
+
 - Bit boards
 	- Set of 64-bit integers that correspond to positions of a certain piece color & type (e.g. black rooks) resulting in 12 integers
 	- This allows for easy checking of rules/collisions
