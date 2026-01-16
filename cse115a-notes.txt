@@ -7,11 +7,14 @@ As a player I want the engine to have a chess board representation and to play l
 			- If we are capturing pieces, then we need to toggle the captured piece's bitboard to 0 as well
 	- Purpose: 
 		- A significant amount of time is spent here to generate possible moves for any given position, and we'll have to search through millions of moves for any given board state. Bitwise operations are some of the fastest operations a computer can make, which will cut down on time.
+
 - FEN String to bit board
 	- Ability to translate from a FEN string to a bit board representation for the engine, as it will allow starting from arbitrary positions
+
 - Move generation
 	- Generate the set of legal moves given a certain board position
 	- Must use bit boards & bitwise operators to do so
+
 - Game rules
 	- Castling
 		- The only case in which two pieces move at the same time
@@ -31,6 +34,7 @@ As a player I want the engine to have a chess board representation and to play l
 			- King and bishop vs king and bishop of same tile color as opponent bishop 
 		- Threefold repetition: identical position is reached 3 times in a row such that pieces positions are the same and legal move set is the same (e.g. if en passant is available one time and no longer available another time, it doesn't count as a repetition)
 		- 50 move rule: both players make 50 consecutive moves without capturing any pieces or moving any pawns
+
 - UCI (universal chess interface) for Lichess AND/OR GUI for testing/local play
 	- https://github.com/lichess-bot-devs/lichess-bot
 	- https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
