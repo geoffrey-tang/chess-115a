@@ -1,4 +1,4 @@
-As a player I want the engine to have a chess board representation and to play legal moves so I that basic play is possible
+As a player I want the engine to have a chess board representation and to play legal moves so that basic play is possible
 - Bit boards
 	- Set of 64-bit integers that correspond to positions of a certain piece color & type (e.g. black rooks) resulting in 12 integers
 	- This allows for easy checking of rules/collisions
@@ -8,7 +8,7 @@ As a player I want the engine to have a chess board representation and to play l
 	- Purpose: 
 		- A significant amount of time is spent here to generate possible moves for any given position, and we'll have to search through millions of moves for any given board state. Bitwise operations are some of the fastest operations a computer can make, which will cut down on time.
 - FEN String to bit board
-	- Ability to translate from a FEN string to a bit board representation for the engine, as 
+	- Ability to translate from a FEN string to a bit board representation for the engine, as it will allow starting from arbitrary positions
 - Move generation
 	- Generate the set of legal moves given a certain board position
 	- Must use bit boards & bitwise operators to do so
@@ -33,6 +33,7 @@ As a player I want the engine to have a chess board representation and to play l
 		- 50 move rule: both players make 50 consecutive moves without capturing any pieces or moving any pawns
 - UCI (universal chess interface) for Lichess AND/OR GUI for testing/local play
 	- https://github.com/lichess-bot-devs/lichess-bot
+	- https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
 	- UCI will allow us to just hook the bot up to Lichess and we won't have to worry about creating a graphical user interface for the bot
 	- A GUI would allow us to more freely make modifications to facilitate testing
 		- We might also want to create a GUI to play against the bot locally instead of over Lichess
