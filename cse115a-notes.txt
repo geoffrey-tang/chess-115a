@@ -19,6 +19,8 @@ As a player I want the engine to have a chess board representation and to play l
 	- Must use bit boards & bitwise operators to do so
 
 - Game rules
+	- Promotion
+		- When white pawns reach the 8th rank or black pawns reach the 1st rank, promote to a piece
 	- Castling
 		- The only case in which two pieces move at the same time
 		- Additionally, we must check for whether the king, A rook, or H rook have moved, and whether the squares on the castling path are under attack
