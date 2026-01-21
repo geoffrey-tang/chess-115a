@@ -6,6 +6,7 @@
 
 #define LAST_BIT 63
 
+// print a specific bitboard
 void print_bitboard(uint64_t bitboard){
     for(int rank = 0; rank < 8; rank++){
         for(int file = 0; file < 8; file++){
@@ -17,6 +18,7 @@ void print_bitboard(uint64_t bitboard){
     }
 }
 
+// print the board state in a human readable fashion
 void print_board(uint64_t* bitboards){
     char c;
     for(int rank = 0; rank < 8; rank++){
@@ -71,6 +73,7 @@ void print_board(uint64_t* bitboards){
     }
 }
 
+// parse a FEN string into its 6 constituent parts
 std::vector<std::string> fen_parse(std::string fen){
     std::vector<std::string> fen_parts;
     std::string token;
@@ -84,7 +87,9 @@ std::vector<std::string> fen_parse(std::string fen){
     return fen_parts;
 }
 
-void generate_bb_fen_pieces(std::string fen_pieces, uint64_t* bb_array){ // Use the first part of the parsed FEN string 
+// using the piece list component of a FEN string, generate bitboards and put them into a provided array
+// only use with first parsed component of FEN string, not the full string
+void generate_bb_fen_pieces(std::string fen_pieces, uint64_t* bb_array){
     uint64_t pos = 0;
     for(int i = 0; i < fen_pieces.length(); i++){
         uint64_t mask = 1ULL << (LAST_BIT - pos);
