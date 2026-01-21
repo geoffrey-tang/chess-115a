@@ -2,177 +2,41 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <array>
 #include <bitset>
 
 #define LAST_BIT 63
 
+
+using Piece = int;
+using Bitboard = uint64_t;
+
+struct Pieces {
+    static constexpr Piece PAWN = 0;
+    static constexpr Piece KNIGHT = 1;
+    static constexpr Piece BISHOP = 2;
+    static constexpr Piece ROOK = 3;
+    static constexpr Piece QUEEN = 4;
+    static constexpr Piece KING = 5;
+    static constexpr Piece NONE = 6;
+};
+
+struct Board { // Representation: a8, b8, c8, ..., h8, a7, b7, c7, ..., a1, b1, ..., h8
+    std::array<std::array<Bitboard, 6>, 2> bb_pieces{};
+    std::array<Bitboard, 2> bb_colors{};
+};
+
 // print a specific bitboard
-void print_bitboard(uint64_t bitboard){
-    for(int rank = 0; rank < 8; rank++){
-        for(int file = 0; file < 8; file++){
-            uint64_t mask = 1ULL << (LAST_BIT - (rank * 8) - file);
-            char c = (bitboard & mask) ? '1' : '0';
-            std::cout << c << ' ';
-        }
-        std::cout << '\n';
-    }
-}
+void print_bitboard(Bitboard bitboard);
 
 // print the board state in a human readable fashion
-void print_board(uint64_t* bitboards){
-    char c;
-    for(int rank = 0; rank < 8; rank++){
-        for(int file = 0; file < 8; file++){
-            uint64_t mask = 1ULL << (LAST_BIT - (rank * 8) - file);
-            c = '+';
-            for(int i = 0; i < 12; i++){
-                if (bitboards[i] & mask){
-                    switch(i){
-                        case 0:
-                            c = 'P';
-                            break;
-                        case 1:
-                            c = 'B';
-                            break;
-                        case 2:
-                            c = 'N';
-                            break;
-                        case 3:
-                            c = 'R';
-                            break;
-                        case 4:
-                            c = 'Q';
-                            break;
-                        case 5:
-                            c = 'K';
-                            break;
-                        case 6:
-                            c = 'p';
-                            break;
-                        case 7:
-                            c = 'b';
-                            break;
-                        case 8:
-                            c = 'n';
-                            break;
-                        case 9:
-                            c = 'r';
-                            break;
-                        case 10:
-                            c = 'q';
-                            break;
-                        case 11:
-                            c = 'k';
-                            break;
-                    }
-                }
-            }
-            std::cout << c << ' ';
-        }
-        std::cout << '\n';
-    }
-}
+void print_board(Board bitboards);
 
 // parse a FEN string into its 6 constituent parts
-std::vector<std::string> fen_parse(std::string fen){
-    std::vector<std::string> fen_parts;
-    std::string token;
-    size_t pos = 0;
-    while((pos = fen.find(" ")) != std::string::npos){
-        token = fen.substr(0, pos);
-        fen_parts.push_back(token);
-        fen.erase(0, pos + 1);
-    }
-    fen_parts.push_back(fen);
-    return fen_parts;
-}
+std::vector<std::string> fen_parse(std::string fen);
 
 // using the piece list component of a FEN string, generate bitboards and put them into a provided array
 // only use with first parsed component of FEN string, not the full string
-void generate_bb_fen_pieces(std::string fen_pieces, uint64_t* bb_array){
-    uint64_t pos = 0;
-    for(int i = 0; i < fen_pieces.length(); i++){
-        uint64_t mask = 1ULL << (LAST_BIT - pos);
-        //std::cout << fen_pieces[i] << " " << (LAST_BIT - pos) << " " << std::bitset<64>(mask) << "\n";
-        //std::cout << fen_pieces[i];
-        switch(fen_pieces[i]){
-            case 'P': 
-                bb_array[0] |= mask;
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'B': 
-                bb_array[1] |= mask; 
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'N': 
-                bb_array[2] |= mask; 
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'R': 
-                bb_array[3] |= mask; 
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'Q': 
-                bb_array[4] |= mask; 
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'K': 
-                bb_array[5] |= mask; 
-                bb_array[12] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
+void generate_bb_from_fen_pieces(std::string fen_pieces, Board& bb_pieces);
 
-            case 'p': 
-                bb_array[6] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'b': 
-                bb_array[7] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'n': 
-                bb_array[8] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'r': 
-                bb_array[9] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'q': 
-                bb_array[10] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case 'k': 
-                bb_array[11] |= mask; 
-                bb_array[13] |= mask;
-                bb_array[14] |= mask;
-                pos++;
-                break;
-            case '/': 
-                break;
-            default: 
-                pos += fen_pieces[i] - '0'; // conversion from char to int literal
-        }
-    }   
-}
+uint64_t get_mask(int rank, int file);
