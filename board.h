@@ -93,51 +93,75 @@ void generate_bb_fen_pieces(std::string fen_pieces, uint64_t* bb_array){ // Use 
         switch(fen_pieces[i]){
             case 'P': 
                 bb_array[0] |= mask;
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'B': 
                 bb_array[1] |= mask; 
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'N': 
                 bb_array[2] |= mask; 
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'R': 
                 bb_array[3] |= mask; 
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'Q': 
                 bb_array[4] |= mask; 
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'K': 
                 bb_array[5] |= mask; 
+                bb_array[12] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
 
             case 'p': 
                 bb_array[6] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'b': 
                 bb_array[7] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'n': 
                 bb_array[8] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'r': 
                 bb_array[9] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'q': 
                 bb_array[10] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case 'k': 
                 bb_array[11] |= mask; 
+                bb_array[13] |= mask;
+                bb_array[14] |= mask;
                 pos++;
                 break;
             case '/': 
