@@ -7,8 +7,6 @@
 
 #define LAST_BIT 63
 
-
-using Piece = int;
 using Bitboard = uint64_t;
 
 constexpr Bitboard file_a = 0x8080808080808080ULL;
