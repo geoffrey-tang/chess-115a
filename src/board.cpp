@@ -27,44 +27,44 @@ void print_board(Board bitboards){
                     if (bitboards.bb_pieces[color][piece] & mask){
                         if(color == 0){
                             switch(piece){
-                                case Pieces::PAWN:
+                                case PAWN:
                                     c = 'P';
                                     break;
-                                case Pieces::KNIGHT:
+                                case KNIGHT:
                                     c = 'N';
                                     break;
-                                case Pieces::BISHOP:
+                                case BISHOP:
                                     c = 'B';
                                     break;
-                                case Pieces::ROOK:
+                                case ROOK:
                                     c = 'R';
                                     break;
-                                case Pieces::QUEEN:
+                                case QUEEN:
                                     c = 'Q';
                                     break;
-                                case Pieces::KING:
+                                case KING:
                                     c = 'K';
                                     break;
                             }
                         }
                         else{
                             switch(piece){
-                                case Pieces::PAWN:
+                                case PAWN:
                                     c = 'p';
                                     break;
-                                case Pieces::KNIGHT:
+                                case KNIGHT:
                                     c = 'n';
                                     break;
-                                case Pieces::BISHOP:
+                                case BISHOP:
                                     c = 'b';
                                     break;
-                                case Pieces::ROOK:
+                                case ROOK:
                                     c = 'r';
                                     break;
-                                case Pieces::QUEEN:
+                                case QUEEN:
                                     c = 'q';
                                     break;
-                                case Pieces::KING:
+                                case KING:
                                     c = 'k';
                                     break;
                             }
@@ -99,63 +99,63 @@ void generate_bb_from_fen_pieces(std::string fen_pieces, Board& bitboards){
         //std::cout << fen_pieces[i];
         switch(fen_pieces[i]){
             case 'P': 
-                bitboards.bb_pieces[0][Pieces::PAWN] |= mask;
+                bitboards.bb_pieces[0][PAWN] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
             case 'N': 
-                bitboards.bb_pieces[0][Pieces::KNIGHT] |= mask;
+                bitboards.bb_pieces[0][KNIGHT] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
             case 'B': 
-                bitboards.bb_pieces[0][Pieces::BISHOP] |= mask;
+                bitboards.bb_pieces[0][BISHOP] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
             case 'R': 
-                bitboards.bb_pieces[0][Pieces::ROOK] |= mask;
+                bitboards.bb_pieces[0][ROOK] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
             case 'Q': 
-                bitboards.bb_pieces[0][Pieces::QUEEN] |= mask;
+                bitboards.bb_pieces[0][QUEEN] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
             case 'K': 
-                bitboards.bb_pieces[0][Pieces::KING] |= mask;
+                bitboards.bb_pieces[0][KING] |= mask;
                 bitboards.bb_colors[0] |= mask;
                 pos++;
                 break;
 
             case 'p': 
-                bitboards.bb_pieces[1][Pieces::PAWN] |= mask;
+                bitboards.bb_pieces[1][PAWN] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
             case 'n': 
-                bitboards.bb_pieces[1][Pieces::KNIGHT] |= mask;
+                bitboards.bb_pieces[1][KNIGHT] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
             case 'b': 
-                bitboards.bb_pieces[1][Pieces::BISHOP] |= mask;
+                bitboards.bb_pieces[1][BISHOP] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
             case 'r': 
-                bitboards.bb_pieces[1][Pieces::ROOK] |= mask;
+                bitboards.bb_pieces[1][ROOK] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
             case 'q': 
-                bitboards.bb_pieces[1][Pieces::QUEEN] |= mask;
+                bitboards.bb_pieces[1][QUEEN] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
             case 'k': 
-                bitboards.bb_pieces[1][Pieces::KING] |= mask;
+                bitboards.bb_pieces[1][KING] |= mask;
                 bitboards.bb_colors[1] |= mask;
                 pos++;
                 break;
