@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 void print_bitboard(uint64_t bitboard){
     const uint64_t last_bit = 63;
@@ -12,6 +13,19 @@ void print_bitboard(uint64_t bitboard){
         }
         std::cout << '\n';
     }
+}
+
+std::vector<std::string> fen_parse(std::string fen){
+    std::vector<std::string> fen_parts;
+    std::string token;
+    size_t pos = 0;
+    while((pos = fen.find(" ")) != std::string::npos){
+        token = fen.substr(0, pos);
+        fen_parts.push_back(token);
+        fen.erase(0, pos + 1);
+    }
+    fen_parts.push_back(fen);
+    return fen_parts;
 }
 
 int main(){
@@ -48,6 +62,11 @@ int main(){
     for(uint64_t board : bitboards){
         print_bitboard(board);
         std::cout << "------------------------\n";
+    }
+    std::vector<std::string> fen_tokens = fen_parse(fen);
+    std::cout << "FEN parse elements:\n";
+    for (const auto& element : fen_tokens) {
+        std::cout << element << "\n";
     }
     return 0;
 }
