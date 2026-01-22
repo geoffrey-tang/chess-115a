@@ -4,6 +4,7 @@
 #include <vector>
 #include <bitset>
 #include "board.h"
+#include "move_gen.h"
 
 int main(int argc, char* argv[]){
     std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35"; //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
@@ -35,5 +36,12 @@ int main(int argc, char* argv[]){
 
     print_board(bitboard);
     std::cout << "\nFEN: " << fen << "\n";
+
+    print_bitboard(1ULL << E4);
+    std::cout << "\n";
+    print_bitboard(king_move(D4));
+    std::cout << "\n";
+    print_bitboard(knight_move(D4));
+    std::cout << "\n";
     return 0;
 }
