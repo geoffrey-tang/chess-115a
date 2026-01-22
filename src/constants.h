@@ -6,23 +6,23 @@
 
 using Bitboard = uint64_t;
 
-constexpr Bitboard file_a = 0x8080808080808080ULL;
-constexpr Bitboard file_b = file_a >> 1;
-constexpr Bitboard file_c = file_a >> 2;
-constexpr Bitboard file_d = file_a >> 3;
-constexpr Bitboard file_e = file_a >> 4;
-constexpr Bitboard file_f = file_a >> 5;
-constexpr Bitboard file_g = file_a >> 6;
-constexpr Bitboard file_h = file_a >> 7;
+constexpr Bitboard file_a_bb = 0x8080808080808080ULL;
+constexpr Bitboard file_b_bb = file_a_bb >> 1;
+constexpr Bitboard file_c_bb = file_a_bb >> 2;
+constexpr Bitboard file_d_bb = file_a_bb >> 3;
+constexpr Bitboard file_e_bb = file_a_bb >> 4;
+constexpr Bitboard file_f_bb = file_a_bb >> 5;
+constexpr Bitboard file_g_bb = file_a_bb >> 6;
+constexpr Bitboard file_h_bb = file_a_bb >> 7;
 
-constexpr Bitboard rank_1 = 0xFF;
-constexpr Bitboard rank_2 = rank_1 << (8 * 1);
-constexpr Bitboard rank_3 = rank_1 << (8 * 2);
-constexpr Bitboard rank_4 = rank_1 << (8 * 3);
-constexpr Bitboard rank_5 = rank_1 << (8 * 4);
-constexpr Bitboard rank_6 = rank_1 << (8 * 5);
-constexpr Bitboard rank_7 = rank_1 << (8 * 6);
-constexpr Bitboard rank_8 = rank_1 << (8 * 7);
+constexpr Bitboard rank_1_bb = 0xFF;
+constexpr Bitboard rank_2_bb = rank_1_bb << (8 * 1);
+constexpr Bitboard rank_3_bb = rank_1_bb << (8 * 2);
+constexpr Bitboard rank_4_bb = rank_1_bb << (8 * 3);
+constexpr Bitboard rank_5_bb = rank_1_bb << (8 * 4);
+constexpr Bitboard rank_6_bb = rank_1_bb << (8 * 5);
+constexpr Bitboard rank_7_bb = rank_1_bb << (8 * 6);
+constexpr Bitboard rank_8_bb = rank_1_bb << (8 * 7);
 
 enum Squares : uint8_t { // from LSB to MSB
     H1, G1, F1, E1, D1, C1, B1, A1,
@@ -48,4 +48,39 @@ enum Pieces : uint8_t{
 enum Colors : uint8_t{
     WHITE,
     BLACK
+};
+
+enum Files : uint8_t{
+    FILE_A,
+    FILE_B,
+    FILE_C,
+    FILE_D,
+    FILE_E,
+    FILE_F,
+    FILE_G,
+    FILE_H
+};
+
+enum Ranks : uint8_t{
+    RANK_1,
+    RANK_2,
+    RANK_3,
+    RANK_4,
+    RANK_5,
+    RANK_6,
+    RANK_7,
+    RANK_8
+};
+
+enum Castling : uint8_t{
+    NO_CASTLE,
+    WHITE_OO,
+    WHITE_OOO = WHITE_OO << 1,
+    BLACK_OO = WHITE_OO << 2,
+    BLACK_OOO = WHITE_OO << 3,
+    OO = WHITE_OO | BLACK_OO,
+    OOO = WHITE_OOO | BLACK_OOO,
+    WHITE_CASTLE = WHITE_OO | WHITE_OOO,
+    BLACK_CASTLE = BLACK_OO | BLACK_OOO,
+    ANY_CASTLE = WHITE_CASTLE | BLACK_CASTLE
 };

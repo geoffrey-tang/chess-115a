@@ -7,11 +7,17 @@
 #include "move_gen.h"
 
 int main(int argc, char* argv[]){
-    std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35"; //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    std::string fen = "r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; 
+    //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    //en passant: r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
+    //random pos: 5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35
     Board bitboard;
 
     std::vector<std::string> fen_tokens = fen_parse(fen);
-    generate_bb_from_fen_pieces(fen_tokens[0], bitboard);
+    get_bb_from_fen_pieces(fen_tokens[0], bitboard);
+    get_turn_from_fen(fen_tokens[1], bitboard);
+    get_castle_from_fen(fen_tokens[2], bitboard);
+    get_en_passant_from_fen(fen_tokens[3], bitboard);
 
     std::string pieces[12] = {"w_pawn", "w_bishop", "w_knight", "w_rook", "w_queen", "w_king", 
         "b_pawn", "b_bishop", "b_knight", "b_rook", "b_queen", "b_king"};
@@ -36,12 +42,14 @@ int main(int argc, char* argv[]){
 
     print_board(bitboard);
     std::cout << "\nFEN: " << fen << "\n";
-
     print_bitboard(1ULL << E4);
     std::cout << "\n";
     print_bitboard(king_move(D4));
     std::cout << "\n";
     print_bitboard(knight_move(D4));
-    std::cout << "\n";
+    
+    std::cout << bitboard.white_to_move << "\n";
+    std::cout << unsigned(bitboard.castle) << " " << unsigned(ANY_CASTLE) << "\n";
+    std::cout << unsigned(bitboard.en_passant) << " " << unsigned(D6) << "\n"; 
     return 0;
 }

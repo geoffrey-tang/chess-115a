@@ -6,11 +6,17 @@
 #include <vector>
 #include <array>
 #include <bitset>
+#include <ctype.h>
 #include "constants.h"
 
 struct Board { // Representation: a8, b8, c8, ..., h8, a7, b7, c7, ..., a1, b1, ..., h8
     std::array<std::array<Bitboard, 6>, 2> bb_pieces{};
     std::array<Bitboard, 2> bb_colors{};
+    bool white_to_move;
+    uint8_t castle = 0;
+    uint8_t en_passant;
+    int halfmove;
+    int fullmove;
 };
 
 // print a specific bitboard
@@ -24,6 +30,18 @@ std::vector<std::string> fen_parse(std::string fen);
 
 // using the piece list component of a FEN string, generate bitboards and put them into a provided array
 // only use with first parsed component of FEN string, not the full string
-void generate_bb_from_fen_pieces(std::string fen_pieces, Board& bb_pieces);
+void get_bb_from_fen_pieces(std::string fen_pieces, Board& bb_pieces);
+
+void get_turn_from_fen(std::string fen_turn, Board& bitboards);
+
+void get_castle_from_fen(std::string fen_castle, Board& bitboards);
+
+void get_en_passant_from_fen(std::string fen_passant, Board& bitboards);
+
+void set_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards);
+
+uint8_t algebraic_to_int(std::string algebraic);
+
+std::string int_to_algebraic(uint8_t integer);
 
 uint64_t get_mask(int rank, int file);
