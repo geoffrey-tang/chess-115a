@@ -24,6 +24,10 @@ constexpr Bitboard rank_6_bb = rank_1_bb << (8 * 5);
 constexpr Bitboard rank_7_bb = rank_1_bb << (8 * 6);
 constexpr Bitboard rank_8_bb = rank_1_bb << (8 * 7);
 
+// gets the edge squares of a file/rank for rook relevant occupancy
+constexpr Bitboard rook_mask_file = 0x0100000000000001ULL;
+constexpr Bitboard rook_mask_rank = 0x81;
+
 enum Squares : uint8_t { // from LSB to MSB
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
