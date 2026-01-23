@@ -7,7 +7,7 @@
 #include "move_gen.h"
 
 int main(int argc, char* argv[]){
-    std::string fen = "r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; 
+    std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35"; 
     //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     //en passant: r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
     //random pos: 5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35
@@ -37,10 +37,19 @@ int main(int argc, char* argv[]){
     print_board(bitboard);
     std::cout << "\nFEN: " << fen << "\n";
 
-    print_bitboard(knight_move(algebraic_to_int("e4")));
+    print_bitboard(knight_move(E4, bitboard, WHITE));
     std::cout << "\n";
 
-    print_bitboard(rook_mask(algebraic_to_int("a1")));
+    print_bitboard(king_move(F2, bitboard, WHITE));
+    std::cout << "\n";
+
+    print_bitboard(rook_move(D2, bitboard, WHITE));
+    std::cout << "\n";
+
+    print_bitboard(bishop_move(E3, bitboard, WHITE));
+    std::cout << "\n";
+
+    print_bitboard(queen_move(F6, bitboard, WHITE));
     std::cout << "\n";
     return 0;
 }
