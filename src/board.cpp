@@ -250,3 +250,11 @@ uint64_t get_mask(int rank, int file){ // start from 0 to 7 such that a1 = ((0 *
     uint64_t mask = 1ULL << ((rank * 8) + file);
     return mask;
 }
+
+uint8_t get_file(uint8_t square){
+    return square & 7; // square % 8
+}
+
+uint8_t get_rank(uint8_t square){
+    return square >> 3; // square / 8
+}

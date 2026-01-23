@@ -38,3 +38,7 @@ Bitboard knight_move(uint8_t square){
 
     return attacks;
 }
+
+Bitboard rook_mask(uint8_t square){
+    return (((file_a_bb << get_file(square)) | (rank_1_bb << (8 * get_rank(square)))) ^ (1ULL << square));
+}
