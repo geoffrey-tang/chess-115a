@@ -3,10 +3,12 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include <iterator>
+#include <algorithm>
 #include "board.h"
 
 void print_bitboard(Bitboard bitboard){
-    for(int rank = 0; rank < 8; rank++){
+    for(int rank = 7; rank >= 0; rank--){
         for(int file = 0; file < 8; file++){
             uint64_t mask = get_mask(rank, file);
             char c = (bitboard & mask) ? '1' : '0';
@@ -18,7 +20,7 @@ void print_bitboard(Bitboard bitboard){
 
 void print_board(Board bitboards){
     char c;
-    for(int rank = 0; rank < 8; rank++){
+    for(int rank = 7; rank >= 0; rank--){
         for(int file = 0; file < 8; file++){
             uint64_t mask = get_mask(rank, file);
             c = '+';
@@ -97,77 +99,78 @@ std::vector<std::string> fen_parse(std::string fen){
 }
 
 void get_bb_from_fen_pieces(std::string fen_pieces, Board& bitboards){
-    uint64_t pos = 0;
+    uint64_t file = 0;
+    uint64_t rank = 7;
     for(int i = 0; i < fen_pieces.length(); i++){
-        uint64_t mask = 1ULL << (LAST_BIT - pos);
-        std::cout << fen_pieces[i] << " " << (LAST_BIT - pos) << " " << std::bitset<64>(mask) << "\n";
-        //std::cout << fen_pieces[i];
+        uint64_t mask = get_mask(rank, file);
         switch(fen_pieces[i]){
             case 'P': 
                 bitboards.bb_pieces[0][PAWN] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
             case 'N': 
                 bitboards.bb_pieces[0][KNIGHT] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
             case 'B': 
                 bitboards.bb_pieces[0][BISHOP] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
             case 'R': 
                 bitboards.bb_pieces[0][ROOK] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
             case 'Q': 
                 bitboards.bb_pieces[0][QUEEN] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
             case 'K': 
                 bitboards.bb_pieces[0][KING] |= mask;
                 bitboards.bb_colors[0] |= mask;
-                pos++;
+                file++;
                 break;
 
             case 'p': 
                 bitboards.bb_pieces[1][PAWN] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case 'n': 
                 bitboards.bb_pieces[1][KNIGHT] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case 'b': 
                 bitboards.bb_pieces[1][BISHOP] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case 'r': 
                 bitboards.bb_pieces[1][ROOK] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case 'q': 
                 bitboards.bb_pieces[1][QUEEN] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case 'k': 
                 bitboards.bb_pieces[1][KING] |= mask;
                 bitboards.bb_colors[1] |= mask;
-                pos++;
+                file++;
                 break;
             case '/': 
+                rank--;
+                file = 0;
                 break;
             default: 
-                pos += fen_pieces[i] - '0'; // conversion from char to int literal
+                file += fen_pieces[i] - '0'; // conversion from char to int literal
         }
     }   
 }
@@ -234,16 +237,16 @@ std::string int_to_algebraic(uint8_t integer){
             break;
         }
     }
-    char file = 'h' - (integer - ((rank - 1) * 8));
+    char file = 'a' + (integer - ((rank - 1) * 8));
     std::string square = file + std::to_string(rank);
     return square;
 }
 
 uint8_t algebraic_to_int(std::string algebraic){
-    return (((algebraic[1] - '0') - 1) * 8) + (7 - (algebraic[0] - 'a'));
+    return ((algebraic[0] - 'a') + ((algebraic[1] - '0') - 1) * 8);
 }
 
-uint64_t get_mask(int rank, int file){ // a = 0, b = 1, c = 2, d = 3, e = 4, f = 5, g = 6, h = 7
-    uint64_t mask = 1ULL << (LAST_BIT - (rank * 8) - file);
+uint64_t get_mask(int rank, int file){ // start from 0 to 7 such that a1 = ((0 * 8) + 0) = 0
+    uint64_t mask = 1ULL << ((rank * 8) + file);
     return mask;
 }

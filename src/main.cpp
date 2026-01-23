@@ -36,6 +36,8 @@ int main(int argc, char* argv[]){
 
     print_board(bitboard);
     std::cout << "\nFEN: " << fen << "\n";
-    
+
+    print_bitboard(knight_move(algebraic_to_int("e4")));
+    std::cout << "\n";
     return 0;
 }
