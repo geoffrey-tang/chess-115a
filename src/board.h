@@ -51,3 +51,5 @@ uint64_t get_mask(int rank, int file);
 uint8_t get_file(uint8_t square);
 
 uint8_t get_rank(uint8_t square);
+
+uint8_t empty_square(uint8_t square, Board& board);

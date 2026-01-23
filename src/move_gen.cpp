@@ -90,6 +90,20 @@ Bitboard check_dst(uint8_t square, int offset){
     }
 }
 
+Bitboard pawn_move(uint8_t square, Board& board, uint8_t color){
+    Bitboard empty = ~(board.bb_colors[0] | board.bb_colors[1]);
+    Bitboard pawn_attacks = color == WHITE ? 
+        (((1ULL << (square + 9)) & ~file_a_bb) | ((1ULL << (square + 7)) & ~file_h_bb)) & board.bb_colors[BLACK] :
+        (((1ULL << (square - 9)) & ~file_h_bb) | ((1ULL << (square - 7)) & ~file_a_bb)) & board.bb_colors[WHITE];
+    Bitboard single_push = color == WHITE ? 
+        ((1ULL << (square + 8)) & empty) :
+        ((1ULL << (square - 8)) & empty);
+    Bitboard double_push = color == WHITE ? 
+        (single_push << 8) & empty & rank_4_bb :
+        (single_push >> 8) & empty & rank_5_bb;
+    return pawn_attacks | single_push | double_push;
+}
+
 /* might use this for magic bitboards later;
 Bitboard rook_mask(uint8_t square){
     return (((file_a_bb << get_file(square)) | (rank_1_bb << (8 * get_rank(square)))) ^ (1ULL << square)) & ~rook_mask_file & ~rook_mask_rank;

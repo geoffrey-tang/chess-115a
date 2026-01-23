@@ -258,3 +258,8 @@ uint8_t get_file(uint8_t square){
 uint8_t get_rank(uint8_t square){
     return square >> 3; // square / 8
 }
+
+uint8_t empty_square(uint8_t square, Board& board){
+    Bitboard occupancy = board.bb_colors[0] | board.bb_colors[1];
+    return ~((1ULL << square) & occupancy);
+}

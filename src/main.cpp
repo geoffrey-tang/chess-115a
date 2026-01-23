@@ -7,7 +7,7 @@
 #include "move_gen.h"
 
 int main(int argc, char* argv[]){
-    std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35"; 
+    std::string fen = "8/1p4p1/6kp/P2p4/4n1P1/pP2nP2/P2P1K1P/8 w - - 1 35"; 
     //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     //en passant: r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
     //random pos: 5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35
@@ -51,5 +51,18 @@ int main(int argc, char* argv[]){
 
     print_bitboard(queen_move(F6, bitboard, WHITE));
     std::cout << "\n";
+
+    print_bitboard(pawn_move(D2, bitboard, WHITE));
+    std::cout << "\n";
+    print_bitboard(pawn_move(A5, bitboard, WHITE));
+    std::cout << "\n";
+    print_bitboard(pawn_move(H2, bitboard, WHITE));
+    std::cout << "\n";
+
+    print_bitboard(pawn_move(B7, bitboard, BLACK));
+    std::cout << "\n";
+    print_bitboard(pawn_move(A3, bitboard, BLACK));
+    std::cout << "\n";
+    print_bitboard(pawn_move(H6, bitboard, BLACK));
     return 0;
 }
