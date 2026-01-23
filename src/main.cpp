@@ -42,14 +42,6 @@ int main(int argc, char* argv[]){
 
     print_board(bitboard);
     std::cout << "\nFEN: " << fen << "\n";
-    print_bitboard(1ULL << E4);
-    std::cout << "\n";
-    print_bitboard(king_move(D4));
-    std::cout << "\n";
-    print_bitboard(knight_move(D4));
     
-    std::cout << bitboard.white_to_move << "\n";
-    std::cout << unsigned(bitboard.castle) << " " << unsigned(ANY_CASTLE) << "\n";
-    std::cout << unsigned(bitboard.en_passant) << " " << unsigned(D6) << "\n"; 
     return 0;
 }
