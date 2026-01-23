@@ -11,13 +11,7 @@ int main(int argc, char* argv[]){
     //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     //en passant: r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
     //random pos: 5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35
-    Board bitboard;
-
-    std::vector<std::string> fen_tokens = fen_parse(fen);
-    get_bb_from_fen_pieces(fen_tokens[0], bitboard);
-    get_turn_from_fen(fen_tokens[1], bitboard);
-    get_castle_from_fen(fen_tokens[2], bitboard);
-    get_en_passant_from_fen(fen_tokens[3], bitboard);
+    Board bitboard = get_board(fen);
 
     std::string pieces[12] = {"w_pawn", "w_bishop", "w_knight", "w_rook", "w_queen", "w_king", 
         "b_pawn", "b_bishop", "b_knight", "b_rook", "b_queen", "b_king"};

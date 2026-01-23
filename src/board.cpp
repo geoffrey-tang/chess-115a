@@ -210,9 +210,20 @@ void get_en_passant_from_fen(std::string fen_passant, Board& bitboards){
     }
 }
 
-void set_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards){
+void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards){
     bitboards.halfmove = std::stoi(fen_halfmove);
     bitboards.fullmove = std::stoi(fen_fullmove);
+}
+
+Board get_board(std::string fen){
+    Board board;
+    std::vector<std::string> fen_tokens = fen_parse(fen);
+    get_bb_from_fen_pieces(fen_tokens[0], board);
+    get_turn_from_fen(fen_tokens[1], board);
+    get_castle_from_fen(fen_tokens[2], board);
+    get_en_passant_from_fen(fen_tokens[3], board);
+    get_moves_from_fen(fen_tokens[4], fen_tokens[5], board);
+    return board;
 }
 
 std::string int_to_algebraic(uint8_t integer){

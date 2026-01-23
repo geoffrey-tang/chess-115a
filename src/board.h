@@ -38,7 +38,9 @@ void get_castle_from_fen(std::string fen_castle, Board& bitboards);
 
 void get_en_passant_from_fen(std::string fen_passant, Board& bitboards);
 
-void set_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards);
+void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards);
+
+Board get_board(std::string fen);
 
 uint8_t algebraic_to_int(std::string algebraic);
 
