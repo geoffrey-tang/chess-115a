@@ -101,7 +101,7 @@ std::vector<std::string> fen_parse(std::string fen){
 void get_bb_from_fen_pieces(std::string fen_pieces, Board& bitboards){
     uint64_t file = 0;
     uint64_t rank = 7;
-    for(int i = 0; i < fen_pieces.length(); i++){
+    for(size_t i = 0; i < fen_pieces.length(); i++){
         uint64_t mask = get_mask(rank, file);
         switch(fen_pieces[i]){
             case 'P': 
@@ -230,7 +230,7 @@ Board get_board(std::string fen){
 }
 
 std::string int_to_algebraic(uint8_t integer){
-    uint8_t rank;
+    uint8_t rank = -1;
     for(uint8_t i = 0; i < 8; i++){
         if( (i * 8) > integer){
             rank = i;
