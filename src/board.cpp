@@ -274,7 +274,7 @@ void debug_bb(Board& board){
         "b_pawn", "b_bishop", "b_knight", "b_rook", "b_queen", "b_king"};
     std::string colors[2] = {"white", "black"};
 
-    std::cout << "Starting bitboards:\n\n";
+    std::cout << "Bitboards:\n\n";
     for(int color = 0; color < 2; color++){
         for(int piece = 0; piece < 6; piece++){
             std::cout << pieces[(color * 2) + piece] << "\n";
