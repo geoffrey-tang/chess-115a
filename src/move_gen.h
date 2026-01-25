@@ -14,7 +14,7 @@ Bitboard queen_move(uint8_t square, Board& board, uint8_t color);
 
 Bitboard pawn_move(uint8_t square, Board& board, uint8_t color);
 
-std::vector<Move> generate_moves(Board& board, uint8_t color);
+std::vector<Move> generate_moves(Board& board, uint8_t color); // currently generates 1 big list; change later for alpha beta pruning
 
 Bitboard check_dst(uint8_t square, int offset);
 
