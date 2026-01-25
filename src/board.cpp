@@ -78,7 +78,7 @@ void print_board(Board bitboards){
         }
         std::cout << '\n';
     }
-    std::cout << (bitboards.white_to_move ? "White" : "Black") << " to move\n";
+    std::cout << (bitboards.to_move ? "Black" : "White") << " to move\n";
     std::cout << "Castling (W_OO, W_OOO, B_OO, B_OOO): " << std::bitset<4>(bitboards.castle) << "\n";
     std::cout << "En passant: " << (bitboards.en_passant != 64 ? int_to_algebraic(bitboards.en_passant) : "-") << "\n";
     std::cout << "50-move halfmove counter: " << bitboards.halfmove << "\n";
@@ -177,9 +177,9 @@ void get_bb_from_fen_pieces(std::string fen_pieces, Board& bitboards){
 
 void get_turn_from_fen(std::string fen_turn, Board& bitboards){
     if(fen_turn == "w")
-        bitboards.white_to_move = true;
+        bitboards.to_move = WHITE;
     else
-        bitboards.white_to_move = false;
+        bitboards.to_move = BLACK;
 }
 
 void get_castle_from_fen(std::string fen_castle, Board& bitboards){
@@ -230,16 +230,9 @@ Board get_board(std::string fen){
 }
 
 std::string int_to_algebraic(uint8_t integer){
-    uint8_t rank = -1;
-    for(uint8_t i = 0; i < 8; i++){
-        if( (i * 8) > integer){
-            rank = i;
-            break;
-        }
-    }
-    char file = 'a' + (integer - ((rank - 1) * 8));
-    std::string square = file + std::to_string(rank);
-    return square;
+    char file = 'a' + (integer % 8);
+    char rank = '1' + (integer / 8);
+    return std::string{file, rank};
 }
 
 uint8_t algebraic_to_int(std::string algebraic){
@@ -259,7 +252,42 @@ uint8_t get_rank(uint8_t square){
     return square >> 3; // square / 8
 }
 
+Move set_move(uint8_t from, uint8_t to){
+    return (to << 6) | from;
+}
+
+uint8_t get_from_sq(Move move){
+    return move & 0x3F;
+}
+
+uint8_t get_to_sq(Move move){
+    return (move >> 6) & 0x3F;
+}
+
 uint8_t empty_square(uint8_t square, Board& board){
     Bitboard occupancy = board.bb_colors[0] | board.bb_colors[1];
     return ~((1ULL << square) & occupancy);
+}
+
+void debug_bb(Board& board){
+    std::string pieces[12] = {"w_pawn", "w_bishop", "w_knight", "w_rook", "w_queen", "w_king", 
+        "b_pawn", "b_bishop", "b_knight", "b_rook", "b_queen", "b_king"};
+    std::string colors[2] = {"white", "black"};
+
+    std::cout << "Starting bitboards:\n\n";
+    for(int color = 0; color < 2; color++){
+        for(int piece = 0; piece < 6; piece++){
+            std::cout << pieces[(color * 2) + piece] << "\n";
+            print_bitboard(board.bb_pieces[color][piece]);
+            std::cout << "------------------------\n";
+        }
+    }
+    for(int color = 0; color < 2; color++){
+        std::cout << colors[color] << "\n";
+        print_bitboard(board.bb_colors[color]);
+        std::cout << "------------------------\n";
+    }
+    std::cout << "all" << "\n";
+    print_bitboard(board.bb_colors[0] | board.bb_colors[1]);
+    std::cout << "------------------------\n";
 }

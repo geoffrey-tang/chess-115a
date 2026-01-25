@@ -7,62 +7,18 @@
 #include "move_gen.h"
 
 int main(){
-    std::string fen = "8/1p4p1/6kp/P2p4/4n1P1/pP2nP2/P2P1K1P/8 w - - 1 35"; 
+    std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 b - - 1 35"; 
     //starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     //en passant: r1bqkbnr/ppp1pppp/n7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
     //random pos: 5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 w - - 1 35
     Board bitboard = get_board(fen);
-
-    std::string pieces[12] = {"w_pawn", "w_bishop", "w_knight", "w_rook", "w_queen", "w_king", 
-        "b_pawn", "b_bishop", "b_knight", "b_rook", "b_queen", "b_king"};
-    std::string colors[2] = {"white", "black"};
-
-    std::cout << "Starting bitboards:\n\n";
-    for(int color = 0; color < 2; color++){
-        for(int piece = 0; piece < 6; piece++){
-            std::cout << pieces[(color * 2) + piece] << "\n";
-            print_bitboard(bitboard.bb_pieces[color][piece]);
-            std::cout << "------------------------\n";
-        }
-    }
-    for(int color = 0; color < 2; color++){
-        std::cout << colors[color] << "\n";
-        print_bitboard(bitboard.bb_colors[color]);
-        std::cout << "------------------------\n";
-    }
-    std::cout << "all" << "\n";
-    print_bitboard(bitboard.bb_colors[0] | bitboard.bb_colors[1]);
-    std::cout << "------------------------\n";
-
     print_board(bitboard);
-    std::cout << "\nFEN: " << fen << "\n";
+    std::cout << "FEN: " << fen << "\n";
 
-    print_bitboard(knight_move(E4, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(king_move(F2, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(rook_move(D2, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(bishop_move(E3, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(queen_move(F6, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(pawn_move(D2, bitboard, WHITE));
-    std::cout << "\n";
-    print_bitboard(pawn_move(A5, bitboard, WHITE));
-    std::cout << "\n";
-    print_bitboard(pawn_move(H2, bitboard, WHITE));
-    std::cout << "\n";
-
-    print_bitboard(pawn_move(B7, bitboard, BLACK));
-    std::cout << "\n";
-    print_bitboard(pawn_move(A3, bitboard, BLACK));
-    std::cout << "\n";
-    print_bitboard(pawn_move(H6, bitboard, BLACK));
+    std::vector<Move> movelist = generate_moves(bitboard, bitboard.to_move);
+    std::cout << "PSEUDO-LEGAL MOVES:\n";
+    for(Move i : movelist){
+        std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << "\n";
+    }
     return 0;
 }

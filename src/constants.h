@@ -5,6 +5,7 @@
 #define LAST_BIT 63
 
 using Bitboard = uint64_t;
+using Move = uint16_t;
 
 constexpr Bitboard file_a_bb = 0x0101010101010101ULL;
 constexpr Bitboard file_b_bb = file_a_bb << 1;

@@ -12,7 +12,7 @@
 struct Board {
     std::array<std::array<Bitboard, 6>, 2> bb_pieces{};
     std::array<Bitboard, 2> bb_colors{};
-    bool white_to_move;
+    uint8_t to_move;
     uint8_t castle = 0;
     uint8_t en_passant;
     int halfmove;
@@ -52,4 +52,12 @@ uint8_t get_file(uint8_t square);
 
 uint8_t get_rank(uint8_t square);
 
+Move set_move(uint8_t from, uint8_t to);
+
+uint8_t get_from_sq(Move move);
+
+uint8_t get_to_sq(Move move);
+
 uint8_t empty_square(uint8_t square, Board& board);
+
+void debug_bb(Board& board);
