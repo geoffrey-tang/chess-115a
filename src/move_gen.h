@@ -6,7 +6,7 @@ Bitboard king_move(uint8_t square, Board& board, uint8_t color); // get king mov
 
 Bitboard knight_move(uint8_t square, Board& board, uint8_t color); // get knight moves from a specific square
 
-Bitboard bishop_move(uint8_t square, Board& board, uint8_t color); 
+Bitboard bishop_move(uint8_t square, Board& board, uint8_t color); // remember to update sliders for magic bitboards later
 
 Bitboard rook_move(uint8_t square, Board& board, uint8_t color); 
 
