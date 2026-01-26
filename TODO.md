@@ -11,3 +11,9 @@
 - [X] en passant
 - [ ] castling
 - [ ] basic uci
+
+### Interface
+
+- [] Setup interface infrastructure, opengl probably
+- [] Setup board view
+- [] Setup peices
