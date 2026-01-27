@@ -133,7 +133,11 @@ Open `build/chess-115a.sln` in Visual Studio and press F5 to build and run.
 
 **Windows (Command Line):**
 ```powershell
+# If using Visual Studio generator:
 .\build\Release\chess.exe
+
+# If using MinGW/Unix Makefiles generator:
+.\build\chess.exe
 ```
 
 ## Development Workflow
