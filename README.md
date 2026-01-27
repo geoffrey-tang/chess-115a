@@ -34,9 +34,19 @@ cd vcpkg
 
 **Bootstrap vcpkg:**
 
-**Linux/WSL/macOS:**
+**Linux/WSL:**
 ```bash
 ./bootstrap-vcpkg.sh
+```
+
+**macOS:**
+```bash
+./bootstrap-vcpkg.sh
+```
+
+**Windows:**
+```powershell
+.\bootstrap-vcpkg.bat
 ```
 
 ### 2. Install System Dependencies
@@ -59,19 +69,40 @@ brew install cmake
 xcode-select --install
 ```
 
+#### Windows:
+**Option A: Visual Studio (Recommended)**
+1. Install [Visual Studio 2019 or later](https://visualstudio.microsoft.com/downloads/) (Community Edition is free)
+   - During installation, select "Desktop development with C++"
+   - This includes CMake, C++ compiler, and Windows SDK
+2. OpenGL support is included with Windows SDK
+
+**Option B: MinGW-w64 + CMake**
+1. Install [CMake for Windows](https://cmake.org/download/)
+2. Install [MinGW-w64](https://www.mingw-w64.org/downloads/)
+3. Add MinGW bin directory to PATH
+
+**Option C: WSL (Windows Subsystem for Linux)**
+Follow the Linux/WSL instructions above after [installing WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+
 ## Setup Instructions
 
 ### Step 1: Configure the Project
 
-**Option A: Using vcpkg in project directory (if you cloned vcpkg here):**
+**Linux/WSL/macOS:**
 ```bash
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-**Option B: Using vcpkg installed elsewhere:**
-```bash
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=<VCPKG_PATH>/scripts/buildsystems/vcpkg.cmake
+**Windows (PowerShell):**
+```powershell
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
+
+**Windows (Visual Studio):**
+```powershell
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 17 2022"
+```
+*Note: Use "Visual Studio 16 2019" if you have VS 2019*
 
 This will:
 - Download and install dependencies (GLFW, GLAD, OpenGL)
@@ -80,20 +111,30 @@ This will:
 
 ### Step 2: Build the Project
 
-```
+**Linux/WSL/macOS:**
+```bash
 cmake --build build
 ```
 
+**Windows (Command Line):**
+```powershell
+cmake --build build --config Release
+```
+
+**Windows (Visual Studio):**
+Open `build/chess-115a.sln` in Visual Studio and press F5 to build and run.
+
 ### Step 3: Run the Program
 
-**Linux/Mac:**
+**Linux/WSL/macOS:**
 ```bash
 ./build/chess
 ```
 
-**Expected Output:**
-- Console shows chess board and move list
-- **No window will appear yet** (OpenGL rendering not implemented)
+**Windows (Command Line):**
+```powershell
+.\build\Release\chess.exe
+```
 
 ## Development Workflow
 
