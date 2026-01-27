@@ -24,6 +24,9 @@ src/
 
 ## Prerequisites
 
+> **💡 Recommended Setup:**  
+> **Linux/macOS** have the simplest setup. **Windows users** may find **WSL (Option C)** easier than native Windows development for this project.
+
 ### 1. Install vcpkg (Package Manager)
 
 **Clone vcpkg in your project directory:**
