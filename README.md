@@ -70,16 +70,17 @@ xcode-select --install
 ```
 
 #### Windows:
-**Option A: Visual Studio (Recommended)**
+**Option A: MinGW-w64 + CMake (Recommended - simpler compatibility)**
+1. Install [CMake for Windows](https://cmake.org/download/)
+2. Install [MinGW-w64](https://www.mingw-w64.org/downloads/) (or via [MSYS2](https://www.msys2.org/))
+3. Add MinGW bin directory to PATH
+4. MinGW uses GCC, so code compiles without modifications
+
+**Option B: Visual Studio**
 1. Install [Visual Studio 2019 or later](https://visualstudio.microsoft.com/downloads/) (Community Edition is free)
    - During installation, select "Desktop development with C++"
    - This includes CMake, C++ compiler, and Windows SDK
-2. OpenGL support is included with Windows SDK
-
-**Option B: MinGW-w64 + CMake**
-1. Install [CMake for Windows](https://cmake.org/download/)
-2. Install [MinGW-w64](https://www.mingw-w64.org/downloads/)
-3. Add MinGW bin directory to PATH
+2. Note: May require source code modifications for MSVC-specific differences
 
 **Option C: WSL (Windows Subsystem for Linux)**
 Follow the Linux/WSL instructions above after [installing WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
@@ -93,12 +94,12 @@ Follow the Linux/WSL instructions above after [installing WSL](https://learn.mic
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-**Windows (PowerShell):**
+**Windows (PowerShell with MinGW):**
 ```powershell
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -G "MinGW Makefiles"
 ```
 
-**Windows (Visual Studio):**
+**Windows (PowerShell with Visual Studio):**
 ```powershell
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 17 2022"
 ```
@@ -116,7 +117,12 @@ This will:
 cmake --build build
 ```
 
-**Windows (Command Line):**
+**Windows (MinGW):**
+```powershell
+cmake --build build
+```
+
+**Windows (Visual Studio):**
 ```powershell
 cmake --build build --config Release
 ```
@@ -136,7 +142,7 @@ Open `build/chess-115a.sln` in Visual Studio and press F5 to build and run.
 # If using Visual Studio generator:
 .\build\Release\chess.exe
 
-# If using MinGW/Unix Makefiles generator:
+# If using MinGW Makefiles generator:
 .\build\chess.exe
 ```
 
