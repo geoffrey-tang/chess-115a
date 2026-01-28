@@ -47,55 +47,39 @@ set(UI_HEADERS
     # src/ui/board_view.h
 )
 
-# Main entry point
-set(MAIN_SOURCES
-    src/main.cpp
-)
-
-# Combine all sources
-set(ALL_SOURCES
-    ${MAIN_SOURCES}
-    ${ENGINE_SOURCES}
+# Create GUI executable (frontend only - CLI uses Makefile)
+add_executable(chess_gui
+    src/gui/main.cpp
+    ${ENGINE_SOURCES}  # GUI needs engine sources too
     ${GRAPHICS_SOURCES}
     ${UI_SOURCES}
 )
 
-set(ALL_HEADERS
-    ${ENGINE_HEADERS}
-    ${GRAPHICS_HEADERS}
-    ${UI_HEADERS}
-)
-
-# Create executable
-add_executable(chess ${ALL_SOURCES} ${ALL_HEADERS})
-
-# Link OpenGL libraries
-target_link_libraries(chess PRIVATE
+target_link_libraries(chess_gui PRIVATE
     OpenGL::GL
     glfw
     glad::glad
 )
 
-# Include directories for each module
-target_include_directories(chess PRIVATE
+target_include_directories(chess_gui PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/engine
     ${CMAKE_CURRENT_SOURCE_DIR}/src/graphics
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
 )
 
-# Compiler warnings
+# Compiler warnings for GUI
 if(MSVC)
-    target_compile_options(chess PRIVATE /W4)
+    target_compile_options(chess_gui PRIVATE /W4)
 else()
-    target_compile_options(chess PRIVATE -Wall -Wextra -O2)
+    target_compile_options(chess_gui PRIVATE -Wall -Wextra -O2)
 endif()
 
 # Add optimization flag for Release builds
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     if(MSVC)
-        target_compile_options(chess PRIVATE /O2)
+        target_compile_options(chess_gui PRIVATE /O2)
     else()
-        target_compile_options(chess PRIVATE -O3)
+        target_compile_options(chess_gui PRIVATE -O3)
     endif()
 endif()

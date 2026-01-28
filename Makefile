@@ -5,32 +5,33 @@ LDFLAGS =
 
 # Directories
 SRC_DIR = src
+ENGINE_DIR = $(SRC_DIR)/engine
 BUILD_DIR = build
 
-# Source files
-SOURCES = $(SRC_DIR)/main.cpp $(SRC_DIR)/board.cpp $(SRC_DIR)/move_gen.cpp
-OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
+# Engine CLI sources (GUI uses CMake)
+ENGINE_SOURCES = $(ENGINE_DIR)/board.cpp $(ENGINE_DIR)/move_gen.cpp $(ENGINE_DIR)/main.cpp
+ENGINE_OBJECTS = $(patsubst $(ENGINE_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(ENGINE_SOURCES))
 
-# Output executable
-TARGET = $(BUILD_DIR)/chess
+# CLI executable target
+TARGET = $(BUILD_DIR)/chess_cli
 
 # Default target
 all: $(TARGET)
 
-# Link the executable
-$(TARGET): $(OBJECTS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+# Link CLI executable
+$(TARGET): $(ENGINE_OBJECTS) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(ENGINE_OBJECTS) -o $(TARGET) $(LDFLAGS)
 	@echo Build complete: $(TARGET)
 
-# Compile source files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+# Compile engine sources
+$(BUILD_DIR)/%.o: $(ENGINE_DIR)/%.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(ENGINE_DIR) -c $< -o $@
 
 # Create build directory if it doesn't exist
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Run the program
+# Run the CLI engine
 run: $(TARGET)
 	./$(TARGET)
 
