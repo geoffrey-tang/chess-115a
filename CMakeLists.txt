@@ -29,13 +29,13 @@ set(ENGINE_HEADERS
 
 # Graphics sources (OpenGL rendering)
 set(GRAPHICS_SOURCES
-    # src/graphics/renderer.cpp
-    # src/graphics/shader.cpp
+    src/gui/graphics/renderer.cpp
+    src/gui/graphics/shader.cpp
 )
 
 set(GRAPHICS_HEADERS
-    # src/graphics/renderer.h
-    # src/graphics/shader.h
+    src/gui/graphics/renderer.h
+    src/gui/graphics/shader.h
 )
 
 # UI sources (interface)

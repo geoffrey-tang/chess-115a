@@ -3,45 +3,34 @@
 #include <string>
 #include <vector>
 #include <bitset>
+
 #include "board.h"
 #include "move_gen.h"
+
+#include "graphics/shader.h"
+#include "graphics/renderer.h"
+
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+
+int width = 640;
+int height = 480;
+
 int main(void){
-    GLFWwindow* window;
-
-    /* Initialize the library */
-    if (!glfwInit())
-        return -1;
+    Renderer renderer;
     
-    /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(640, 800, "Hello World", NULL, NULL);
-    if (!window){
-        glfwTerminate();
+    if (!renderer.init(width, height, "Chess GUI")) {
+        std::cerr << "Failed to initialize renderer" << std::endl;
         return -1;
     }
-
-    /* Make the window's context current */
-    glfwMakeContextCurrent(window);
-
-    /* Loop until the user closes the window */
-    while(!glfwWindowShouldClose(window)){
-        /* Render here */
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glBegin(GL_TRIANGLES);
-        glVertex2f(-0.5f, -0.5f);
-        glVertex2f( 0.0f,  0.5f);
-        glVertex2f( 0.5f,  -0.5f);
-        glEnd();
-        /* Swap front and back buffers */
-        glfwSwapBuffers(window);
-
-        /* Poll for and process events */
+    
+    // Main render loop
+    while (!renderer.shouldClose()) {
+        renderer.drawBoard();
+        renderer.swapBuffers();
         glfwPollEvents();
-
     }
-
-    glfwTerminate();
+    
     return 0;
 }
