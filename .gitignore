@@ -11,3 +11,13 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Python GUI
+gui_py/.venv/
+gui_py/__pycache__/
+gui_py/**/*.pyc
+
+# General Python
+__pycache__/
+*.pyc
+.venv/
