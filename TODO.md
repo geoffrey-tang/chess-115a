@@ -17,4 +17,3 @@
 - [ ] Setup interface infrastructure, opengl probably
 - [ ] Setup board view
 - [ ] Setup peices
-test
