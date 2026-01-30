@@ -29,6 +29,11 @@ constexpr Bitboard rank_8_bb = rank_1_bb << (8 * 7);
 constexpr Bitboard rook_mask_file = 0x0100000000000001ULL;
 constexpr Bitboard rook_mask_rank = 0x81;
 
+extern Bitboard line_bb[64][64]; // lookup table for the line (from edge to edge) on which 2 squares are (both orthogonally and diagonally)
+extern Bitboard between_bb[64][64]; // lookup table for the line (from square to square) on which 2 squares are (both orthogonally an diagonally)
+extern Bitboard ray_bb[64][64]; // lookup table for the line (from square to edge) on which 2 squares are (both orthogonally an diagonally)
+extern Bitboard castle_path[4];
+
 enum Squares : uint8_t { // from LSB to MSB
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,

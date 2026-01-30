@@ -6,6 +6,30 @@
 #include <iterator>
 #include <algorithm>
 #include "board.h"
+#include "move_gen.h"
+#include "constants.h"
+
+Bitboard line_bb[64][64];
+Bitboard between_bb[64][64]; 
+Bitboard ray_bb[64][64];
+Bitboard castle_path[4] = {3ULL << F1, 7ULL << B1, 3ULL << F8, 7ULL << B8};
+
+void init(){
+    for(int sq1 = A1; sq1 <= H8; sq1++){
+        for(int sq2 = A1; sq2 <= H8; sq2++){
+            if(rook_move(sq1, 0) & (1ULL << sq2)){
+                line_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
+                between_bb[sq1][sq2] = (rook_move(sq1, (1ULL << sq2)) & rook_move(sq2, (1ULL << sq1)));
+                ray_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
+            }
+            if(bishop_move(sq1, 0) & (1ULL << sq2)){
+                line_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
+                between_bb[sq1][sq2] = (bishop_move(sq1, (1ULL << sq2)) & bishop_move(sq2, (1ULL << sq1)));
+                ray_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
+            }
+        }
+    }
+}
 
 void print_bitboard(Bitboard bitboard){
     for(int rank = 7; rank >= 0; rank--){
@@ -21,6 +45,7 @@ void print_bitboard(Bitboard bitboard){
 void print_board(Board bitboards){
     char c;
     for(int rank = 7; rank >= 0; rank--){
+        std::cout << rank + 1 << "|";
         for(int file = 0; file < 8; file++){
             uint64_t mask = get_mask(rank, file);
             c = '+';
@@ -78,6 +103,7 @@ void print_board(Board bitboards){
         }
         std::cout << '\n';
     }
+    std::cout << "  ---------------\n  a b c d e f g h\n";
     std::cout << (bitboards.to_move ? "Black" : "White") << " to move\n";
     std::cout << "Castling (W_OO, W_OOO, B_OO, B_OOO): " << std::bitset<4>(bitboards.castle) << "\n";
     std::cout << "En passant: " << (bitboards.en_passant != 64 ? int_to_algebraic(bitboards.en_passant) : "-") << "\n";
@@ -252,7 +278,7 @@ uint8_t get_rank(uint8_t square){
     return square >> 3; // square / 8
 }
 
-Move set_move(uint8_t from, uint8_t to){
+Move set_move(uint8_t from, uint8_t to){ // store details about a move into a uint16_t (flags (4 bits) | to (6 bits) | from (6 bits))
     return (to << 6) | from;
 }
 

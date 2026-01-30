@@ -19,6 +19,9 @@ struct Board {
     int fullmove;
 };
 
+// initializing constants & lookup tables/
+void init();
+
 // print a specific bitboard
 void print_bitboard(Bitboard bitboard);
 
