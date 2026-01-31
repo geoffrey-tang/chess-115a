@@ -19,6 +19,9 @@ class ChessGUI:
         self.setup_ui()
         self.draw_board()
 
+        self.images = {}
+        self.load_images()
+
         self.pieces = {}
         self.create_all_pieces()
 
@@ -52,33 +55,64 @@ class ChessGUI:
                 color = self.light_square if (row + col) % 2 == 0 else self.dark_square
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline = "")
+    
+    def load_images(self):
+        for color in ("w", "b"):
+            for piece in ("p", "r", "n", "b", "q", "k"):
+                key = f"{color}{piece}"
+                img = tk.PhotoImage(file=f"pieces/{key}.png")
 
-    def create_piece(self, row, col, color):
-        size = 80
-        pad = (self.square_size - size) // 2
+                scale = img.width() // 80
+                if scale > 1:
+                    img = img.subsample(scale, scale)
+
+                self.images[key] = img
+
+
+    def create_piece(self, row, col, piece_code):
         
-        x1 = col * self.square_size + pad
-        y1 = row * self.square_size + pad
-        x2 = x1 + size
-        y2 = y1 + size
+        x = col * self.square_size + self.square_size // 2
+        y = row * self.square_size + self.square_size // 2
 
-        piece = self.canvas.create_oval(
-                x1, y1, x2, y2,
-                fill = color,
-                tags=("piece", "draggable")
+        piece = self.canvas.create_image(
+                x, y,
+                image=self.images[piece_code],
+                tags=("piece", "draggable", piece_code)
         )
 
-        self.pieces[piece] = (row, col)
+        self.pieces[piece] = (row, col, piece_code)
 
     def create_all_pieces(self):
+        # Pawns
         for col in range(8):
-            self.create_piece(1, col, "white")
-            self.create_piece(6, col, "black")
+            self.create_piece(1, col, "wp")
+            self.create_piece(6, col, "bp")
 
-        self.create_piece(0, 0, "white")
-        self.create_piece(0, 7, "white")
-        self.create_piece(7, 0, "black")
-        self.create_piece(7, 7, "black")
+        # Rooks
+        self.create_piece(0, 0, "wr")
+        self.create_piece(0, 7, "wr")
+        self.create_piece(7, 0, "br")
+        self.create_piece(7, 7, "br")
+
+        # Knights
+        self.create_piece(0, 1, "wn")
+        self.create_piece(0, 6, "wn")
+        self.create_piece(7, 1, "bn")
+        self.create_piece(7, 6, "bn")
+
+        # Bishops
+        self.create_piece(0, 2, "wb")
+        self.create_piece(0, 5, "wb")
+        self.create_piece(7, 2, "bb")
+        self.create_piece(7, 5, "bb")
+
+        # Queens
+        self.create_piece(0, 3, "wq")
+        self.create_piece(7, 3, "bq")
+
+        # Kings
+        self.create_piece(0, 4, "wk")
+        self.create_piece(7, 4, "bk")
 
     def drag_start(self, event):
         item = self.canvas.find_closest(event.x, event.y)[0]
@@ -108,9 +142,7 @@ class ChessGUI:
         if item is None:
             return
         
-        x1, y1, x2, y2 = self.canvas.coords(item)
-        cx = (x1 + x2) // 2
-        cy = (y1 + y2) // 2
+        cx, cy = self.canvas.coords(item)
 
         col = max(0, min(7, cx // self.square_size))
         row = max(0, min(7, cy // self.square_size))
