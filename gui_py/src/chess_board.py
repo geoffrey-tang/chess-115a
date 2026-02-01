@@ -11,8 +11,8 @@ class ChessGUI:
 
         # Colors
         # Feel free to mess with this
-        self.light_square = "#FFFFFF"
-        self.dark_square = "#000000"
+        self.light_square = "#eeeed2"
+        self.dark_square = "#769656"
 
         self.drag_data = {"x": 0, "y": 0, "item": None}
 
