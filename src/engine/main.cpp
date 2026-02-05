@@ -5,6 +5,7 @@
 #include <bitset>
 #include "board.h"
 #include "move_gen.h"
+#include "uci.h"
 
 int main(void){
     std::string fen = "5r2/1p4pp/6k1/P2p4/4n1P1/1P3P1P/3R1K2/8 b - - 1 35"; 
@@ -20,6 +21,6 @@ int main(void){
     for(Move i : movelist){
         std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << "\n";
     }
-
+    //return run_uci_loop();
     return 0;
 }
