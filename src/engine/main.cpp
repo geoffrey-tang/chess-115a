@@ -6,6 +6,7 @@
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
+#include "eval.h"
 
 int main(void){
     init();
@@ -18,6 +19,9 @@ int main(void){
     Board bitboard = get_board(fen);
     print_board(bitboard);
     std::cout << "FEN: " << fen << "\n";
+
+    std::cout << "Material score (centipawns, +white / -black): "
+              << material_score(bitboard) << "\n";
 
     std::vector<Move> movelist = generate_moves(bitboard, bitboard.to_move);
     std::cout << "PSEUDO-LEGAL MOVES:\n";
