@@ -78,6 +78,8 @@ uint8_t get_from_sq(Move move);
 
 uint8_t get_to_sq(Move move);
 
+uint8_t get_promo(Move move);
+
 uint8_t get_move_flags(Move move);
 
 uint8_t parse_promotion_flag(Move move);

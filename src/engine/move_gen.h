@@ -25,7 +25,7 @@ bool legal(Board& board, StateStack& ss, Move move);
 
 std::vector<Move> generate_moves(Board& board, StateStack& ss);
 
-Bitboard check_dst(uint8_t square, int offset);
+Bitboard check_dst(int square, int offset);
 
 void update_castling(Board& board, uint8_t color, uint8_t moved_piece, Move move); // color = color of the moving piece
 

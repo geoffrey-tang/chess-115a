@@ -25,7 +25,7 @@ static std::vector<std::string> split_ws(const std::string& s) {
     return out;
 }
 
-static std::string move_to_uci(Move m) {
+std::string move_to_uci(Move m) {
     std::string s = int_to_algebraic(get_from_sq(m)) + int_to_algebraic(get_to_sq(m));
     uint8_t pp = parse_promotion_flag(m); // returns KNIGHT/BISHOP/ROOK/QUEEN or NONE
     if (pp != NONE) {

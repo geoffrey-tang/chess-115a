@@ -61,16 +61,46 @@ Bitboard queen_move(uint8_t square, Bitboard occupancy){
 
 Bitboard pawn_move(uint8_t square, Board& board, uint8_t color){
     Bitboard empty = ~(board.bb_colors[0] | board.bb_colors[1]);
-    Bitboard pawn_attacks = color == WHITE ? 
-        (((1ULL << (square + 9)) & ~file_a_bb) | ((1ULL << (square + 7)) & ~file_h_bb)) & (board.bb_colors[BLACK] | (1ULL << board.st->en_passant)) :
-        (((1ULL << (square - 9)) & ~file_h_bb) | ((1ULL << (square - 7)) & ~file_a_bb)) & (board.bb_colors[WHITE] | (1ULL << board.st->en_passant));
-    Bitboard single_push = color == WHITE ? 
-        ((1ULL << (square + 8)) & empty) :
-        ((1ULL << (square - 8)) & empty);
-    Bitboard double_push = color == WHITE ? 
-        (single_push << 8) & empty & rank_4_bb :
-        (single_push >> 8) & empty & rank_5_bb;
-    return pawn_attacks | single_push | double_push;
+    Bitboard moves = 0ULL;
+    if(color == WHITE){
+        // capture
+        moves |= check_dst(square, 7) & (board.bb_colors[BLACK]);
+        moves |= check_dst(square, 9) & (board.bb_colors[BLACK]);
+        if (board.st->en_passant < 64) {
+            Bitboard ep_bb = 1ULL << board.st->en_passant;
+            moves |= (check_dst(square, 7) | check_dst(square, 9)) & ep_bb;
+        }
+
+        // single push
+        Bitboard single_push = check_dst(square, 8) & empty;
+        moves |= single_push;
+
+        // double push
+        if (single_push) {
+            Bitboard double_push = check_dst(square, 16) & empty & rank_4_bb;
+            moves |= double_push;
+        }
+    }
+    else{
+        // capture
+        moves |= check_dst(square, -7) & (board.bb_colors[WHITE]);
+        moves |= check_dst(square, -9) & (board.bb_colors[WHITE]);
+        if (board.st->en_passant < 64) {
+            Bitboard ep_bb = 1ULL << board.st->en_passant;
+            moves |= (check_dst(square, -7) | check_dst(square, -9)) & ep_bb;
+        }
+
+        // single push
+        Bitboard single_push = check_dst(square, -8) & empty;
+        moves |= single_push;
+
+        // double push
+        if (single_push) {
+            Bitboard double_push = check_dst(square, -16) & empty & rank_5_bb;
+            moves |= double_push;
+        }
+    }
+    return moves;
 }
 
 bool square_attacked(Board& board, int sq, uint8_t by_color) {
@@ -183,24 +213,24 @@ std::vector<Move> generate_pseudo(Board& board, uint8_t color){ // this solution
     }
     if(board.st->castle){ // yanderedev tier code; update to a more elegant solution
         if((color == WHITE) && (board.bb_pieces[WHITE][KING] & (1ULL << E1))){
-            if( (board.st->castle & WHITE_CASTLE || board.st->castle & WHITE_OO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << H1))){
+            if( (board.st->castle & WHITE_OO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << H1))){
                 if(!square_attacked(board, E1, BLACK) && !square_attacked(board, F1, BLACK) && !square_attacked(board, G1, BLACK) && !(castle_path[0] & (board.bb_colors[WHITE] | board.bb_colors[BLACK]))){
                     movelist.push_back(set_move(E1, G1, CASTLE)); // set flags later
                 }
             }
-            if( (board.st->castle & WHITE_CASTLE || board.st->castle & WHITE_OOO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << A1))){
+            if( (board.st->castle & WHITE_OOO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << A1))){
                 if(!square_attacked(board, E1, BLACK) && !square_attacked(board, D1, BLACK) && !square_attacked(board, C1, BLACK) && !(castle_path[1] & (board.bb_colors[WHITE] | board.bb_colors[BLACK]))){
                     movelist.push_back(set_move(E1, C1, CASTLE));
                 }
             }
         }
         else if((color == BLACK) && (board.bb_pieces[BLACK][KING] & (1ULL << E8))){
-            if( (board.st->castle & BLACK_CASTLE || board.st->castle & BLACK_OO) && (board.bb_pieces[BLACK][ROOK] & (1ULL << H8)) ){
+            if( (board.st->castle & BLACK_OO) && (board.bb_pieces[BLACK][ROOK] & (1ULL << H8)) ){
                 if(!square_attacked(board, E8, WHITE) && !square_attacked(board, F8, WHITE) && !square_attacked(board, G8, WHITE) && !(castle_path[2] & (board.bb_colors[WHITE] | board.bb_colors[BLACK]))){
                     movelist.push_back(set_move(E8, G8, CASTLE));
                 }
             }
-            if( (board.st->castle & BLACK_CASTLE || board.st->castle & BLACK_OOO) && (board.bb_pieces[BLACK][ROOK] & (1ULL << A8))){
+            if( (board.st->castle & BLACK_OOO) && (board.bb_pieces[BLACK][ROOK] & (1ULL << A8))){
                 if(!square_attacked(board, E8, WHITE) && !square_attacked(board, D8, WHITE) && !square_attacked(board, C8, WHITE) && !(castle_path[3] & (board.bb_colors[WHITE] | board.bb_colors[BLACK]))){
                     movelist.push_back(set_move(E8, C8, CASTLE));
                 }
@@ -260,10 +290,12 @@ std::vector<Move> generate_moves(Board& board, StateStack& ss){
     return legal_moves;
 }
 
-Bitboard check_dst(uint8_t square, int offset){
-    uint8_t dst = square + offset;
+Bitboard check_dst(int square, int offset){
+    int dst = square + offset;
     if(A1 <= dst && dst <= H8){
-        return abs(int(get_file(square)) - int(get_file(dst))) <= 2 ? (1ULL << dst) : 0ULL;
+        int file_sq = int(get_file((uint8_t)square));
+        int file_dst = int(get_file((uint8_t)dst));
+        return abs(file_sq - file_dst) <= 2 ? (1ULL << dst) : 0ULL;
     }
     else{
         return 0ULL;
@@ -323,7 +355,7 @@ void do_move(Board& board, StateStack& ss, Move move){
     board.st->halfmove = (moved_piece == PAWN || capture) ? 0 : (board.st->halfmove + 1);
 
     // handle en passant captures, normal captures, and non-captures
-    if(get_move_flags(move) == EN_PASSANT){
+    if(get_move_flags(move) == (EN_PASSANT >> 14)){ // ok flags might need to be changed bc right now its X << 14 but get_move_flags returns a 4 bit thing which won't evaluate to be the same
         uint8_t cap_sq = (color == WHITE) ? uint8_t(to - 8) : uint8_t(to + 8);
         board.st->captured_square = cap_sq;
         board.st->captured_piece = PAWN;
@@ -348,7 +380,7 @@ void do_move(Board& board, StateStack& ss, Move move){
     }
 
     // move rooks during castling
-    if(get_move_flags(move) == CASTLE){
+    if(get_move_flags(move) == CASTLE >> 14){
         if(color == WHITE){
             if(to == G1){
                 Bitboard rook_from = 1ULL << H1;
@@ -405,7 +437,7 @@ void undo_move(Board& board, StateStack& ss, Move move){
     Bitboard to_bb = 1ULL << to;
 
     // undo castling
-    if(get_move_flags(move) == CASTLE){
+    if(get_move_flags(move) == CASTLE >> 14){
         if(color == WHITE){
             if(to == G1){
                 Bitboard rook_from = 1ULL << H1;

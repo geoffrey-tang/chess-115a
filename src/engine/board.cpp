@@ -115,7 +115,7 @@ void print_moves(Board& board, StateStack& ss){
     std::vector<Move> movelist = generate_moves(board, ss);
     std::cout << movelist.size() << " MOVES:\n";
     for(Move i : movelist){
-        std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << " " << std::bitset<4>(get_move_flags(i));
+        std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << " " << std::bitset<2>(get_move_flags(i));
         switch(parse_promotion_flag(i)){
             case KNIGHT: std::cout << " KNIGHT\n"; break;
             case BISHOP: std::cout << " BISHOP\n"; break;
@@ -311,17 +311,21 @@ uint8_t get_to_sq(Move move){
     return (move >> 6) & 0x3F;
 }
 
+uint8_t get_promo(Move move){
+    return (move >> 12) & 0x3;
+}
+
 uint8_t get_move_flags(Move move){
-    return (move >> 12) & 0x0F;
+    return (move >> 14) & 0x3;
 }
 
 uint8_t parse_promotion_flag(Move move){
     uint8_t flag = get_move_flags(move);
-    if((flag & get_move_flags(PROMOTION)) == 0){
+    if(flag != (PROMOTION >> 14)){
         return NONE;
     }
     else{
-        uint8_t piece = flag & 0x3;
+        uint8_t piece = get_promo(move);
         return piece + 1;
     }
 }
