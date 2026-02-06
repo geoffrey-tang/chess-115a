@@ -1,6 +1,9 @@
 import tkinter as tk
 import ttkbootstrap as ttk
+import threading
+import UCIEngine
 
+engine_path = "/mnt/c/Users/eitan/Downloads/stockfish-windows-x86-64-avx2/stockfish/stockfish-windows-x86-64-avx2.exe"
 
 class ChessGUI:
     def __init__(self, root):
@@ -8,8 +11,10 @@ class ChessGUI:
         self.root.title("Chess Board")
 
         self.square_size = 100
-
         self.menu_size = 400
+
+        # Board orientation: False = white at bottom, True = black at bottom
+        self.flipped = False
 
         # Colors
         # Feel free to mess with this
@@ -20,9 +25,29 @@ class ChessGUI:
 
         self.setup_ui()
         self.draw_board()
-        
-        #draw menu
         self.menu()
+
+    def board_to_screen(self, row, col):
+        if self.flipped:
+            screen_row = row
+            screen_col = 7 - col
+        else:
+            screen_row = 7 - row
+            screen_col = col
+        x = screen_col * self.square_size + self.square_size // 2
+        y = screen_row * self.square_size + self.square_size // 2
+        return x, y
+
+    def screen_to_board(self, x, y):
+        screen_col = int(x // self.square_size)
+        screen_row = int(y // self.square_size)
+        if self.flipped:
+            row = screen_row
+            col = 7 - screen_col
+        else:
+            row = 7 - screen_row
+            col = screen_col
+        return row, col
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding=10)
@@ -41,19 +66,24 @@ class ChessGUI:
         self.canvas.tag_bind("draggable", "<ButtonRelease-1>", self.drag_release)
 
     def draw_board(self):
-        self.canvas.delete("all")
+        self.canvas.delete("square")  # only delete squares, not pieces
 
-        # Draw squares
-        for row in range(8):
-            for col in range(8):
-                x1 = col * self.square_size
-                y1 = row * self.square_size
+        # Draw squares (screen coordinates)
+        for screen_row in range(8):
+            for screen_col in range(8):
+                x1 = screen_col * self.square_size
+                y1 = screen_row * self.square_size
                 x2 = x1 + self.square_size
                 y2 = y1 + self.square_size
 
-                color = self.light_square if (row + col) % 2 == 0 else self.dark_square
+                # Convert to board coords to get correct color pattern
+                board_row, board_col = self.screen_to_board(x1 + 1, y1 + 1)
+                color = self.light_square if (board_row + board_col) % 2 == 1 else self.dark_square
 
-                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline = "")
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="", tags="square")
+
+        # Keep squares below pieces
+        self.canvas.tag_lower("square")
     
     def load_images(self):
         self.images = {}
@@ -69,9 +99,7 @@ class ChessGUI:
                 self.images[key] = img
 
     def create_piece(self, row, col, piece_code, iswhite):
-        
-        x = col * self.square_size + self.square_size // 2
-        y = row * self.square_size + self.square_size // 2
+        x, y = self.board_to_screen(row, col)
 
         piece = self.canvas.create_image(
                 x, y,
@@ -115,8 +143,10 @@ class ChessGUI:
         self.create_piece(7, 4, "bk", iswhite=0)
 
     def drag_start(self, event):
+        # Prevent moves while engine is thinking
+        if self.engine_thinking:
+            return
         item = self.canvas.find_closest(event.x, event.y)[0]
-
         # Checks whose turn it is when allowing drag
         if "piece" not in self.canvas.gettags(item) or self.whites_turn != self.pieces[item][3]:
             return
@@ -142,14 +172,16 @@ class ChessGUI:
         item = self.drag_data["item"]
         if item is None:
             return
-        
+
         cx, cy = self.canvas.coords(item)
 
-        col = max(0, min(7, cx // self.square_size))
-        row = max(0, min(7, cy // self.square_size))
+        # convert screen position to board coordinates
+        row, col = self.screen_to_board(cx, cy)
+        row = max(0, min(7, row))
+        col = max(0, min(7, col))
 
-        target_x = col * self.square_size + self.square_size // 2
-        target_y = row * self.square_size + self.square_size // 2
+        # Convert back to screen position for snapping
+        target_x, target_y = self.board_to_screen(row, col)
 
         dx = target_x - cx
         dy = target_y - cy
@@ -159,14 +191,25 @@ class ChessGUI:
         if occupant is not None and self.whites_turn != self.pieces[occupant][3]:
             # a piece is already there, capture it
             self.canvas.delete(occupant)
-            del self.pieces[occupant]  
+            del self.pieces[occupant]
 
         self.canvas.move(item, dx, dy)
+
+        # save move in UCI format: "e2e4"
+        old_row, old_col = self.pieces[item][0], self.pieces[item][1]
+        origin_square = self.colToFile(old_col) + str(old_row + 1)
+        dest_square = self.colToFile(col) + str(row + 1)
+        self.move_history.append(f"{origin_square}{dest_square}")
 
         self.pieces[item] = (row, col, self.pieces[item][2], self.pieces[item][3])
         self.drag_data["item"] = None
 
         self.whites_turn = not self.whites_turn
+
+        # engine responds after player's move in a background thread
+        if not self.whites_turn:  # engine plays black
+            self.engine_thinking = True
+            threading.Thread(target=self.engine_think, daemon=True).start()
 
     def get_piece_at(self, row, col):
         for item, (r, c, piece_code, iswhite) in self.pieces.items():
@@ -183,14 +226,75 @@ class ChessGUI:
         y2 = self.square_size * 8
         self.canvas.create_rectangle(x1, y1, x2, y2, fill="#FFFFFF", outline = "")
 
-        button = ttk.Button(self.root, text= "Play a game/reset", command=self.game_started)
-        self.canvas.create_window(x1 + self.menu_size // 2, y_margins , window=button)
+        # Play game btn
+        play_button = ttk.Button(self.root, text= "Play a game/reset", command=self.game_started)
+        self.canvas.create_window(x1 + self.menu_size // 2, y_margins , window=play_button)
+        # Flip board btn
+        flip_button = ttk.Button(self.root, text= "Do a flip!", command=self.flip_board)
+        self.canvas.create_window(x1 + self.menu_size // 2, 2*y_margins , window=flip_button)
 
     def game_started(self):
+        # engine path, just btw this path format is wsl specific
+        self.engine = UCIEngine.UCIEngine(engine_path)
+        self.draw_board()
         self.load_images()
         self.create_all_pieces()
-
+        self.menu()
         self.whites_turn = True
+        self.move_history = []
+        self.engine_thinking = False
 
+    def flip_board(self):
+        self.flipped = not self.flipped
+        self.draw_board()
+        for item, (row, col, piece_code, iswhite) in self.pieces.items():
+            x, y = self.board_to_screen(row, col)
+            self.canvas.coords(item, x, y)
 
-        #print("HI!")
+    # helper functions
+    def colToFile(self, col):
+        if col < 0 or col > 7:
+            raise ValueError(f"Column must be 0-7, got {col}")
+        return chr(ord('a') + col)
+
+    def fileToCol(self, file):
+        return ord(file) - ord('a')
+
+    # UCI input functions
+    def parseUciMove(self, uci_move):
+        from_col = self.fileToCol(uci_move[0])
+        from_row = int(uci_move[1]) - 1
+        to_col = self.fileToCol(uci_move[2])
+        to_row = int(uci_move[3]) - 1
+        return (from_row, from_col), (to_row, to_col)
+
+    def make_move(self, uci_move):
+        (from_row, from_col), (to_row, to_col) = self.parseUciMove(uci_move)
+
+        item = self.get_piece_at(from_row, from_col)
+        if item is None:
+            return
+
+        occupant = self.get_piece_at(to_row, to_col)
+        if occupant is not None:
+            self.canvas.delete(occupant)
+            del self.pieces[occupant]
+
+        x, y = self.board_to_screen(to_row, to_col)
+        self.canvas.coords(item, x, y)
+
+        self.move_history.append(uci_move)
+        self.pieces[item] = (to_row, to_col, self.pieces[item][2], self.pieces[item][3])
+        self.whites_turn = not self.whites_turn
+
+    # Thread stuff: 
+    # if you don't use threads, calling the engine
+    # for moves freezes everything else. Not good
+    def engine_think(self):
+        self.pending_move = self.engine.get_move(self.move_history)
+        self.root.after(0, self.finish_engine_move)
+
+    def finish_engine_move(self):
+        self.make_move(self.pending_move)
+        self.engine_thinking = False
+
