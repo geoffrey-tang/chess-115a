@@ -5,6 +5,7 @@
 #include <bitset>
 #include "board.h"
 #include "move_gen.h"
+#include "uci.h"
 #include "constants.h"
 #include "eval.h"
 
@@ -28,5 +29,6 @@ int main(void){
     for(Move i : movelist){
         std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << "\n";
     }
+    //return run_uci_loop();
     return 0;
 }
