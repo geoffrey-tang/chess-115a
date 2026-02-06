@@ -105,10 +105,25 @@ void print_board(Board bitboards){
     }
     std::cout << "  ---------------\n  a b c d e f g h\n";
     std::cout << (bitboards.to_move ? "Black" : "White") << " to move\n";
-    std::cout << "Castling (W_OO, W_OOO, B_OO, B_OOO): " << std::bitset<4>(bitboards.castle) << "\n";
-    std::cout << "En passant: " << (bitboards.en_passant != 64 ? int_to_algebraic(bitboards.en_passant) : "-") << "\n";
-    std::cout << "50-move halfmove counter: " << bitboards.halfmove << "\n";
-    std::cout << "Total moves: " << bitboards.fullmove << "\n";
+    std::cout << "Castling (B_OOO, B_OO, W_OOO, W_OO): " << std::bitset<4>(bitboards.st->castle) << "\n";
+    std::cout << "En passant: " << (bitboards.st->en_passant != 64 ? int_to_algebraic(bitboards.st->en_passant) : "-") << "\n";
+    std::cout << "50-move halfmove counter: " << bitboards.st->halfmove << "\n";
+    std::cout << "Turn: " << bitboards.st->fullmove << "\n";
+}
+
+void print_moves(Board& board, StateStack& ss){
+    std::vector<Move> movelist = generate_moves(board, ss);
+    std::cout << movelist.size() << " MOVES:\n";
+    for(Move i : movelist){
+        std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << " " << std::bitset<4>(get_move_flags(i));
+        switch(parse_promotion_flag(i)){
+            case KNIGHT: std::cout << " KNIGHT\n"; break;
+            case BISHOP: std::cout << " BISHOP\n"; break;
+            case ROOK: std::cout << " ROOK\n"; break;
+            case QUEEN: std::cout << " QUEEN\n"; break;
+            default: std::cout << "\n"; break;
+        }
+    }
 }
 
 std::vector<std::string> fen_parse(std::string fen){
@@ -209,19 +224,20 @@ void get_turn_from_fen(std::string fen_turn, Board& bitboards){
 }
 
 void get_castle_from_fen(std::string fen_castle, Board& bitboards){
+    bitboards.st->castle = 0;
     for(char i : fen_castle){
         switch(i){
             case 'K':
-                bitboards.castle |= WHITE_OO;
+                bitboards.st->castle |= WHITE_OO;
                 break;
             case 'Q':
-                bitboards.castle |= WHITE_OOO;
+                bitboards.st->castle |= WHITE_OOO;
                 break;
             case 'k':
-                bitboards.castle |= BLACK_OO;
+                bitboards.st->castle |= BLACK_OO;
                 break;
             case 'q':
-                bitboards.castle |= BLACK_OOO;
+                bitboards.st->castle |= BLACK_OOO;
                 break;
             case '-':
                 break;
@@ -231,27 +247,32 @@ void get_castle_from_fen(std::string fen_castle, Board& bitboards){
 
 void get_en_passant_from_fen(std::string fen_passant, Board& bitboards){
     if(fen_passant == "-"){
-        bitboards.en_passant = 64;
+        bitboards.st->en_passant = 64;
     }
     else{
         fen_passant[0] = tolower(fen_passant[0]);
-        bitboards.en_passant = algebraic_to_int(fen_passant);
+        bitboards.st->en_passant = algebraic_to_int(fen_passant);
     }
 }
 
 void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards){
-    bitboards.halfmove = std::stoi(fen_halfmove);
-    bitboards.fullmove = std::stoi(fen_fullmove);
+    bitboards.st->halfmove = std::stoi(fen_halfmove);
+    bitboards.st->fullmove = std::stoi(fen_fullmove);
 }
 
 Board get_board(std::string fen){
     Board board;
+
+    board.root = BoardState{};
+    board.st = &board.root;
     std::vector<std::string> fen_tokens = fen_parse(fen);
     get_bb_from_fen_pieces(fen_tokens[0], board);
     get_turn_from_fen(fen_tokens[1], board);
     get_castle_from_fen(fen_tokens[2], board);
     get_en_passant_from_fen(fen_tokens[3], board);
     get_moves_from_fen(fen_tokens[4], fen_tokens[5], board);
+
+    
     return board;
 }
 
@@ -278,8 +299,8 @@ uint8_t get_rank(uint8_t square){
     return square >> 3; // square / 8
 }
 
-Move set_move(uint8_t from, uint8_t to){ // store details about a move into a uint16_t (flags (4 bits) | to (6 bits) | from (6 bits))
-    return (to << 6) | from;
+Move set_move(uint8_t from, uint8_t to, uint16_t flags){ // store details about a move into a uint16_t (flags (4 bits) | to (6 bits) | from (6 bits))
+    return flags | (to << 6) | from;
 }
 
 uint8_t get_from_sq(Move move){
@@ -290,9 +311,31 @@ uint8_t get_to_sq(Move move){
     return (move >> 6) & 0x3F;
 }
 
+uint8_t get_move_flags(Move move){
+    return (move >> 12) & 0x0F;
+}
+
+uint8_t parse_promotion_flag(Move move){
+    uint8_t flag = get_move_flags(move);
+    if((flag & get_move_flags(PROMOTION)) == 0){
+        return NONE;
+    }
+    else{
+        uint8_t piece = flag & 0x3;
+        return piece + 1;
+    }
+}
+
 uint8_t empty_square(uint8_t square, Board& board){
     Bitboard occupancy = board.bb_colors[0] | board.bb_colors[1];
     return ~((1ULL << square) & occupancy);
+}
+
+uint8_t piece_on_square(Board& board, uint8_t color, uint8_t sq) {
+    uint64_t m = 1ULL << sq;
+    for (uint8_t pt = PAWN; pt <= KING; pt++)
+        if (board.bb_pieces[color][pt] & m) return pt;
+    return NONE;
 }
 
 void debug_bb(Board& board){
