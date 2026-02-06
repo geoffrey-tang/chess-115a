@@ -22,7 +22,7 @@ struct BoardState {
     BoardState* previous = nullptr;
 };
 
-// Current board position; we separate BoardState in order to avoid having to use excessive memory storing bitboards
+// Current board position; we separate BoardState in order to avoid having to use excessive memory storing bitboards + time copying bitboards
 struct Board {
     std::array<std::array<Bitboard, 6>, 2> bb_pieces{};
     std::array<Bitboard, 2> bb_colors{};
