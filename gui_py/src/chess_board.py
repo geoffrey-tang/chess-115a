@@ -3,6 +3,7 @@ import ttkbootstrap as ttk
 import threading
 import UCIEngine
 
+# obviously just local to me will change this when our engine uci is working
 engine_path = "/mnt/c/Users/eitan/Downloads/stockfish-windows-x86-64-avx2/stockfish/stockfish-windows-x86-64-avx2.exe"
 
 class ChessGUI:
