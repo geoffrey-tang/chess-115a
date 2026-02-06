@@ -94,3 +94,10 @@ enum Castling : uint8_t{
     BLACK_CASTLE = BLACK_OO | BLACK_OOO,
     ANY_CASTLE = WHITE_CASTLE | BLACK_CASTLE
 };
+
+enum MoveFlags : uint16_t{
+    NORMAL,
+    PROMOTION = 1 << 14, // 0100 = KNIGHT, 0101 = BISHOP, 0110 = ROOK, 0111 = QUEEN;
+    EN_PASSANT = 2 << 14,
+    CASTLE = 3 << 14
+};

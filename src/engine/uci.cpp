@@ -8,6 +8,7 @@
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
+#include "search.h"
 
 static const char* ENGINE_NAME = "chess-115a";
 static const char* ENGINE_AUTHOR = "Team";
@@ -24,8 +25,18 @@ static std::vector<std::string> split_ws(const std::string& s) {
     return out;
 }
 
-static std::string move_to_uci(Move m) {
-    return int_to_algebraic(get_from_sq(m)) + int_to_algebraic(get_to_sq(m));
+std::string move_to_uci(Move m) {
+    std::string s = int_to_algebraic(get_from_sq(m)) + int_to_algebraic(get_to_sq(m));
+    uint8_t pp = parse_promotion_flag(m); // returns KNIGHT/BISHOP/ROOK/QUEEN or NONE
+    if (pp != NONE) {
+        char c = 'q';
+        if (pp == KNIGHT) c = 'n';
+        else if (pp == BISHOP) c = 'b';
+        else if (pp == ROOK) c = 'r';
+        else if (pp == QUEEN) c = 'q';
+        s.push_back(c);
+    }
+    return s;
 }
 
 static void set_position(const std::vector<std::string>& tok, Board& board) {
@@ -83,7 +94,9 @@ int run_uci_loop() {
         else if (cmd == "go") {
             // temp: choose first generated move so UCI basics work now.
             // later add this into minimax/search.
-            std::vector<Move> moves = generate_moves(board, board.to_move);
+            StateStack ss;
+            init_state_stack(board, ss);
+            std::vector<Move> moves = generate_moves(board, ss);
             if (moves.empty()) {
                 std::cout << "bestmove 0000\n";
             } else {
