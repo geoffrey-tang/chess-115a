@@ -11,6 +11,7 @@
 
 static constexpr int MAX_PLY = 512;
 
+// Board state info that will be used in the search stack
 struct BoardState {
     uint8_t castle = 0;
     uint8_t en_passant = 64;
@@ -21,6 +22,7 @@ struct BoardState {
     BoardState* previous = nullptr;
 };
 
+// Current board position; we separate BoardState in order to avoid having to use excessive memory storing bitboards
 struct Board {
     std::array<std::array<Bitboard, 6>, 2> bb_pieces{};
     std::array<Bitboard, 2> bb_colors{};
@@ -29,26 +31,28 @@ struct Board {
     BoardState* st = nullptr;
 };
 
+// Stack used for searching
 struct StateStack {
     std::array<BoardState, MAX_PLY> states;
     int ply = 0;
 };
 
-// initializing constants & lookup tables/
+// Initializing constants & lookup tables (not done)
 void init();
 
-// print a specific bitboard
+// Print a single bitboard in an 8x8 grid
 void print_bitboard(Bitboard bitboard);
 
-// print the board state in a human readable fashion
-void print_board(Board bitboards);
+// Print a full Board position, along with state info
+void print_board(Board board);
 
+// Generate and print the legal movelist for the given Board
 void print_moves(Board& board, StateStack& ss);
 
-// parse a FEN string into its 6 constituent parts
+// Parse a FEN string into its 6 constituent parts
 std::vector<std::string> fen_parse(std::string fen);
 
-// helper functions for board generation from fen
+// Helper functions for board generation from fen
 void get_bb_from_fen_pieces(std::string fen_pieces, Board& bb_pieces);
 
 void get_turn_from_fen(std::string fen_turn, Board& bitboards);
@@ -59,12 +63,13 @@ void get_en_passant_from_fen(std::string fen_passant, Board& bitboards);
 
 void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards);
 
+// Generates a Board from a FEN string, and set search tree root
 Board get_board(std::string fen);
 
-// util
-uint8_t algebraic_to_int(std::string algebraic);
-
+// Utilities
 std::string int_to_algebraic(uint8_t integer);
+
+uint8_t algebraic_to_int(std::string algebraic);
 
 uint64_t get_mask(int rank, int file);
 
