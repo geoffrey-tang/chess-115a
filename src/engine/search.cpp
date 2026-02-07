@@ -78,7 +78,7 @@ int negamax(Board& b, StateStack& ss, int depth){
         else
             return 0;
     }
-    
+
     for(Move m : moves){
         do_move(b, ss, m);
         int score = -1 * negamax(b, ss, depth - 1);
