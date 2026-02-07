@@ -9,3 +9,7 @@ void init_state_stack(Board& board, StateStack& ss);
 uint64_t perft(Board& b, StateStack& ss, int depth);
 
 uint64_t perft_divide(Board& b, int depth);
+
+Move search(Board &b, int depth);
+
+int negamax(Board& b, StateStack& ss, int depth);

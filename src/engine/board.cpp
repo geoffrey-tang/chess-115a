@@ -8,6 +8,7 @@
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
+#include "uci.h"
 
 Bitboard line_bb[64][64];
 Bitboard between_bb[64][64]; 
@@ -119,14 +120,7 @@ void print_moves(Board& board, StateStack& ss){
     std::vector<Move> movelist = generate_moves(board, ss);
     std::cout << movelist.size() << " MOVES:\n";
     for(Move i : movelist){
-        std::cout << int_to_algebraic(get_from_sq(i)) << int_to_algebraic(get_to_sq(i)) << " " << std::bitset<2>(get_move_flags(i));
-        switch(parse_promotion_flag(i)){
-            case KNIGHT: std::cout << " KNIGHT\n"; break;
-            case BISHOP: std::cout << " BISHOP\n"; break;
-            case ROOK: std::cout << " ROOK\n"; break;
-            case QUEEN: std::cout << " QUEEN\n"; break;
-            default: std::cout << "\n"; break;
-        }
+        std::cout << move_to_uci(i) << ", flag=" << std::bitset<2>(get_move_flags(i));
     }
 }
 
