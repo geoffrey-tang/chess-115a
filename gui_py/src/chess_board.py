@@ -28,28 +28,7 @@ class ChessGUI:
         self.draw_board()
         self.menu()
 
-    def board_to_screen(self, row, col):
-        if self.flipped:
-            screen_row = row
-            screen_col = 7 - col
-        else:
-            screen_row = 7 - row
-            screen_col = col
-        x = screen_col * self.square_size + self.square_size // 2
-        y = screen_row * self.square_size + self.square_size // 2
-        return x, y
-
-    def screen_to_board(self, x, y):
-        screen_col = int(x // self.square_size)
-        screen_row = int(y // self.square_size)
-        if self.flipped:
-            row = screen_row
-            col = 7 - screen_col
-        else:
-            row = 7 - screen_row
-            col = screen_col
-        return row, col
-
+    # initialization of tkinter frame and canvas objects
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.pack()
@@ -66,6 +45,7 @@ class ChessGUI:
         self.canvas.tag_bind("draggable", "<B1-Motion>", self.drag_motion)
         self.canvas.tag_bind("draggable", "<ButtonRelease-1>", self.drag_release)
 
+    # draw/ redraw the board using create_rectangle and arithmetic
     def draw_board(self):
         self.canvas.delete("square")  # only delete squares, not pieces
 
@@ -169,6 +149,10 @@ class ChessGUI:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
+    # implements post move logic:
+    # peice capturing
+    # saving move to move history list
+    # starting engine searching
     def drag_release(self, event):
         item = self.drag_data["item"]
         if item is None:
@@ -212,12 +196,7 @@ class ChessGUI:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
-    def get_piece_at(self, row, col):
-        for item, (r, c, piece_code, iswhite) in self.pieces.items():
-            if r == row and c == col:
-                return item
-        return None
-    
+    # ui/menu drawing 
     def menu(self):
         y_margins = 50
 
@@ -234,6 +213,7 @@ class ChessGUI:
         flip_button = ttk.Button(self.root, text= "Do a flip!", command=self.flip_board)
         self.canvas.create_window(x1 + self.menu_size // 2, 2*y_margins , window=flip_button)
 
+    # main game loop
     def game_started(self):
         # engine path, just btw this path format is wsl specific
         self.engine = UCIEngine.UCIEngine(engine_path)
@@ -252,14 +232,47 @@ class ChessGUI:
             x, y = self.board_to_screen(row, col)
             self.canvas.coords(item, x, y)
 
-    # helper functions
+    # converts row and column board coordinates to screen-pixel coordinates
+    def board_to_screen(self, row, col):
+        if self.flipped:
+            screen_row = row
+            screen_col = 7 - col
+        else:
+            screen_row = 7 - row
+            screen_col = col
+        x = screen_col * self.square_size + self.square_size // 2
+        y = screen_row * self.square_size + self.square_size // 2
+        return x, y
+
+    # converts screen-pixel coordinates to row, column board coordinates
+    def screen_to_board(self, x, y):
+        screen_col = int(x // self.square_size)
+        screen_row = int(y // self.square_size)
+        if self.flipped:
+            row = screen_row
+            col = 7 - screen_col
+        else:
+            row = 7 - screen_row
+            col = screen_col
+        return row, col
+
+    ## helper functions
+
+    # column number to file letter
     def colToFile(self, col):
         if col < 0 or col > 7:
             raise ValueError(f"Column must be 0-7, got {col}")
         return chr(ord('a') + col)
 
+    # file letter to column number
     def fileToCol(self, file):
         return ord(file) - ord('a')
+
+    def get_piece_at(self, row, col):
+        for item, (r, c, piece_code, iswhite) in self.pieces.items():
+            if r == row and c == col:
+                return item
+        return None
 
     # UCI input functions
     def parseUciMove(self, uci_move):
@@ -293,6 +306,7 @@ class ChessGUI:
     # for moves freezes everything else. Not good
     def engine_think(self):
         self.pending_move = self.engine.get_move(self.move_history)
+        # tkinter function to keep things thread-safe
         self.root.after(0, self.finish_engine_move)
 
     def finish_engine_move(self):
