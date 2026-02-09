@@ -39,11 +39,12 @@ int main(void){
     std::cout << std::endl;
     perft_divide(board, target_depth); // compare to stockfish's perft
     */
+    int depth = 5;
     auto start = std::chrono::high_resolution_clock::now();
-    std::cout << "Best move: " << move_to_uci(search(board, 5)) << std::endl;
+    std::cout << "Best move: " << move_to_uci(search(board, depth)) << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Search took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " milliseconds" << std::endl;
+    std::cout << "Search at depth " << depth << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " milliseconds" << std::endl;
     //return run_uci_loop();
     return 0;
 }
