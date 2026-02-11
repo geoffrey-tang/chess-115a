@@ -9,7 +9,8 @@ ENGINE_DIR = $(SRC_DIR)/engine
 BUILD_DIR = build
 
 # Engine CLI sources (GUI uses CMake)
-ENGINE_SOURCES = $(ENGINE_DIR)/board.cpp $(ENGINE_DIR)/move_gen.cpp $(ENGINE_DIR)/uci.cpp $(ENGINE_DIR)/main.cpp $(ENGINE_DIR)/eval.cpp $(ENGINE_DIR)/search.cpp
+ENGINE_SOURCES = $(ENGINE_DIR)/board.cpp $(ENGINE_DIR)/move_gen.cpp $(ENGINE_DIR)/uci.cpp $(ENGINE_DIR)/main.cpp $(ENGINE_DIR)/eval.cpp $(ENGINE_DIR)/search.cpp $(ENGINE_DIR)/psqt.cpp
+
 ENGINE_OBJECTS = $(patsubst $(ENGINE_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(ENGINE_SOURCES))
 
 # CLI executable target
