@@ -4,6 +4,11 @@
 #include "move_gen.h"
 #include "constants.h"
 
+struct SearchResult {
+    Move best_move;
+    int score_cp; // score in centipawns, perspective = side to move (negamax)
+};
+
 // Initializes a stack of BoardStates to use for search
 void init_state_stack(Board& board, StateStack& ss);
 

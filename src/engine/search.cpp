@@ -46,23 +46,37 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
-Move search(Board &b, int depth){
+SearchResult search(Board &b, int depth){
+    SearchResult result;
+    result.best_move = 0;
+    result.score_cp = 0;
+
     StateStack ss;
     init_state_stack(b, ss);
-    int max = -1 * std::numeric_limits<int>::max();
+
+    int best_score = -1 * std::numeric_limits<int>::max();
     std::vector<Move> moves = generate_moves(b, ss);
     Move best_move = moves[0];
-    if(moves.empty()) return 0;
+
+    if(moves.empty()){
+        result.best_move = 0;
+        result.score_cp = 0;
+        return result;
+    }
+
     for(Move m : moves) {
         do_move(b, ss, m);
+
         int score = -alpha_beta_negamax(-std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), b, ss, depth - 1);
-        if(score > max){
-            max = score;
+        if(score > best_score){
+            best_score = score;
             best_move = m;
         }
         undo_move(b, ss, m);
     }
-    return best_move;
+    result.best_move = best_move;
+    result.score_cp = best_score;
+    return result;
 }
 
 int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth){

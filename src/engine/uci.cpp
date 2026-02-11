@@ -21,8 +21,27 @@ static std::vector<std::string> split_ws(const std::string& s) {
     std::istringstream iss(s);
     std::vector<std::string> out;
     std::string t;
-    while (iss >> t) out.push_back(t);
+
+    while (iss >> t){
+        out.push_back(t);
+    }
+
     return out;
+}
+
+static int parse_go_depth(const std::vector<std::string>& tok) {
+    int depth = 3;
+
+    for (size_t i = 1; i < tok.size(); i++) {
+        if (tok[i] == "depth") {
+            if (i + 1 < tok.size()) {
+                depth = std::stoi(tok[i + 1]);
+            }
+            break;
+        }
+    }
+
+    return depth;
 }
 
 std::string move_to_uci(Move m) {
@@ -92,15 +111,17 @@ int run_uci_loop() {
             set_position(tok, board);
         }
         else if (cmd == "go") {
-            // temp: choose first generated move so UCI basics work now.
-            // later add this into minimax/search.
-            StateStack ss;
-            init_state_stack(board, ss);
-            std::vector<Move> moves = generate_moves(board, ss);
-            if (moves.empty()) {
+            int depth = parse_go_depth(tok);
+            SearchResult r = search_root(board, depth);
+
+            // r.score_cp is from side to move perspective (negamax)
+            // UCI usually expects score from side to move so its fine
+            std::cout << "info depth " << depth << " score cp " << r.score_cp << "\n";
+
+            if (r.best_move == 0) {
                 std::cout << "bestmove 0000\n";
             } else {
-                std::cout << "bestmove " << move_to_uci(moves[0]) << "\n";
+                std::cout << "bestmove " << move_to_uci(r.best_move) << "\n";
             }
         }
         else if (cmd == "quit") {
