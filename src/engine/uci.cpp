@@ -93,7 +93,7 @@ static void set_position(const std::vector<std::string>& tok, Board& board, Stat
         i++;
         for(; i < tok.size(); i++){
             Move m = uci_to_move(board, ss, tok[i]);
-            if(m == 0) break;
+            if(m == 0) break; // break when illegal move played
             do_move(board, ss, m);
         }
     }
