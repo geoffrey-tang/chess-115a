@@ -94,37 +94,14 @@ class ChessGUI:
         self.pieces[piece] = (row, col, piece_code, iswhite)
 
     def create_all_pieces(self):
+        # remove all pieces from canvas
+        self.canvas.delete("piece")
         self.pieces = {}
-        # Pawns
-        for col in range(8):
-            self.create_piece(1, col, "wp", iswhite=1)
-            self.create_piece(6, col, "bp", iswhite=0)
 
-        # Rooks
-        self.create_piece(0, 0, "wr", iswhite=1)
-        self.create_piece(0, 7, "wr", iswhite=1)
-        self.create_piece(7, 0, "br", iswhite=0)
-        self.create_piece(7, 7, "br", iswhite=0)
-
-        # Knights
-        self.create_piece(0, 1, "wn", iswhite=1)
-        self.create_piece(0, 6, "wn", iswhite=1)
-        self.create_piece(7, 1, "bn", iswhite=0)
-        self.create_piece(7, 6, "bn", iswhite=0)
-
-        # Bishops
-        self.create_piece(0, 2, "wb", iswhite=1)
-        self.create_piece(0, 5, "wb", iswhite=1)
-        self.create_piece(7, 2, "bb", iswhite=0)
-        self.create_piece(7, 5, "bb", iswhite=0)
-
-        # Queens
-        self.create_piece(0, 3, "wq", iswhite=1)
-        self.create_piece(7, 3, "bq", iswhite=0)
-
-        # Kings
-        self.create_piece(0, 4, "wk", iswhite=1)
-        self.create_piece(7, 4, "bk", iswhite=0)
+        for square, piece in self.board.piece_map().items():
+            row, col = chess.square_rank(square), chess.square_file(square)
+            piece_code = ("w" if piece.color == chess.WHITE else "b") + piece.symbol().lower()
+            self.create_piece(row, col, piece_code, piece.color)
 
     def drag_start(self, event):
         item = self.canvas.find_closest(event.x, event.y)[0]
@@ -141,11 +118,18 @@ class ChessGUI:
         # Prevent moves while engine is thinking
         if self.engine_thinking:
             return
-        # Only allow dragging the player's pieces on their turn
-        piece_is_white = self.pieces.get(item, (0, 0, "", 0))[3]
         if "piece" not in self.canvas.gettags(item):
             return
-        if piece_is_white != self.player_is_white or self.whites_turn != piece_is_white:
+
+        # Use chess.Board to check turn and piece ownership
+        row, col = self.pieces[item][0], self.pieces[item][1]
+        square = self.board_to_chess_square(row, col)
+        piece = self.board.piece_at(square)
+        if piece is None or piece.color != self.board.turn:
+            return
+        # Only allow dragging the player's own color
+        player_color = chess.WHITE if self.player_is_white else chess.BLACK
+        if piece.color != player_color:
             return
 
         self.drag_data["item"] = item
@@ -171,7 +155,7 @@ class ChessGUI:
     # starting engine searching
     def drag_release(self, event):
         item = self.drag_data["item"]
-        if item is None:
+        if item is None or self.engine_thinking:
             return
 
         cx, cy = self.canvas.coords(item)
@@ -208,34 +192,33 @@ class ChessGUI:
         row = max(0, min(7, row))
         col = max(0, min(7, col))
 
-        # Convert back to screen position for snapping
-        target_x, target_y = self.board_to_screen(row, col)
-
-        dx = target_x - cx
-        dy = target_y - cy
-
-        # capturing logic
-        occupant = self.get_piece_at(row, col)
-        if occupant is not None and self.whites_turn != self.pieces[occupant][3]:
-            # a piece is already there, capture it
-            self.canvas.delete(occupant)
-            del self.pieces[occupant]
-
-        self.canvas.move(item, dx, dy)
-
-        # save move in UCI format: "e2e4"
         old_row, old_col = self.pieces[item][0], self.pieces[item][1]
-        origin_square = self.colToFile(old_col) + str(old_row + 1)
-        dest_square = self.colToFile(col) + str(row + 1)
-        self.move_history.append(f"{origin_square}{dest_square}")
 
-        self.pieces[item] = (row, col, self.pieces[item][2], self.pieces[item][3])
+        from_sq = self.board_to_chess_square(old_row, old_col)
+        to_sq = self.board_to_chess_square(row, col)
+
+        move = chess.Move(from_sq, to_sq)
+
+        piece = self.board.piece_at(from_sq)
+
+        if piece and piece.piece_type == chess.PAWN and row in (0, 7):
+            move = chess.Move(from_sq, to_sq, promotion=chess.QUEEN)
+
+        if move not in self.board.legal_moves:
+
+            x, y = self.board_to_screen(old_row, old_col)
+            self.canvas.coords(item, x, y)
+            self.drag_data["item"] = None
+            return
+
+        self.board.push(move)
+        self.create_all_pieces()
+
         self.drag_data["item"] = None
 
-        self.whites_turn = not self.whites_turn
-
         # engine responds after player's move in a background thread
-        if self.whites_turn != self.player_is_white:
+        player_color = chess.WHITE if self.player_is_white else chess.BLACK
+        if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
@@ -283,6 +266,7 @@ class ChessGUI:
         board_height = self.square_size * 8
         self.canvas.config(height=board_height + self.palette_height)
 
+        self.board = chess.Board()
         self.draw_board()
         self.load_images()
         self.create_all_pieces()
@@ -348,6 +332,7 @@ class ChessGUI:
         self.canvas.create_window(center, 8.5 * y_margins, window=continue_button, tags="menu_item")
 
     def reset_editor(self):
+        self.board = chess.Board()
         self.canvas.delete("piece")
         self.pieces = {}
         self.create_all_pieces()
@@ -357,8 +342,11 @@ class ChessGUI:
         self.pieces = {}
 
     def continue_from_editor(self):
-        self.whites_turn = self.selected_side.get() == "White to play"
-        self.start_fen = self.board_to_fen()
+        white_to_play = self.selected_side.get() == "White to play"
+        self.start_fen = self.board_to_fen(white_to_play)
+
+        # Build a chess.Board from the editor FEN
+        self.board = chess.Board(self.start_fen)
 
         self.editing = False
         self.canvas.delete("palette")
@@ -366,19 +354,16 @@ class ChessGUI:
         self.clear_menu()
 
         self.engine = UCIEngine.UCIEngine(engine_path)
-        self.player_is_white = self.whites_turn
+        self.player_is_white = white_to_play
         self.flipped = not self.player_is_white
         self.draw_board()
-        # Reposition existing pieces for the (possibly flipped) board
-        for item, (row, col, piece_code, iswhite) in self.pieces.items():
-            x, y = self.board_to_screen(row, col)
-            self.canvas.coords(item, x, y)
-        self.move_history = []
+        self.create_all_pieces()
         self.engine_thinking = False
         self.menu()
 
         # If it's the engine's turn, let it move
-        if self.whites_turn != self.player_is_white:
+        player_color = chess.WHITE if self.player_is_white else chess.BLACK
+        if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
@@ -480,15 +465,14 @@ class ChessGUI:
     # main game loop
     def game_started(self):
         self.engine = UCIEngine.UCIEngine(engine_path)
+        self.board = chess.Board()
         self.player_is_white = self.play_color.get() == "Play as White"
         self.flipped = not self.player_is_white
+        self.start_fen = None
         self.draw_board()
         self.load_images()
         self.create_all_pieces()
         self.menu()
-        self.whites_turn = True
-        self.move_history = []
-        self.start_fen = None
         self.engine_thinking = False
 
         # If player is black, engine moves first
@@ -545,7 +529,7 @@ class ChessGUI:
                 return item
         return None
 
-    def board_to_fen(self):
+    def board_to_fen(self, white_to_play=True):
         piece_map = {
             "wp": chess.Piece(chess.PAWN, chess.WHITE),
             "wr": chess.Piece(chess.ROOK, chess.WHITE),
@@ -561,7 +545,7 @@ class ChessGUI:
             "bk": chess.Piece(chess.KING, chess.BLACK),
         }
         board = chess.Board(fen=None)  # empty board
-        board.turn = self.whites_turn
+        board.turn = chess.WHITE if white_to_play else chess.BLACK
 
         for item, (row, col, piece_code, iswhite) in self.pieces.items():
             square = chess.square(col, row)
@@ -581,50 +565,32 @@ class ChessGUI:
 
         return board.fen()
 
-    # UCI input functions
-    def parseUciMove(self, uci_move):
-        from_col = self.fileToCol(uci_move[0])
-        from_row = int(uci_move[1]) - 1
-        to_col = self.fileToCol(uci_move[2])
-        to_row = int(uci_move[3]) - 1
-        return (from_row, from_col), (to_row, to_col)
-
-    def make_move(self, uci_move):
-        (from_row, from_col), (to_row, to_col) = self.parseUciMove(uci_move)
-
-        item = self.get_piece_at(from_row, from_col)
-        if item is None:
-            return
-
-        occupant = self.get_piece_at(to_row, to_col)
-        if occupant is not None:
-            self.canvas.delete(occupant)
-            del self.pieces[occupant]
-
-        x, y = self.board_to_screen(to_row, to_col)
-        self.canvas.coords(item, x, y)
-
-        self.move_history.append(uci_move)
-        self.pieces[item] = (to_row, to_col, self.pieces[item][2], self.pieces[item][3])
-        self.whites_turn = not self.whites_turn
-
-    # Thread stuff: 
+    # Thread stuff:
     # if you don't use threads, calling the engine
     # for moves freezes everything else. Not good
     def engine_think(self):
+        uci_moves = [m.uci() for m in self.board.move_stack]
         if self.start_fen:
             # Custom position: send FEN + any subsequent moves
             fen_cmd = f"position fen {self.start_fen}"
-            if self.move_history:
-                fen_cmd += " moves " + " ".join(self.move_history)
+            if uci_moves:
+                fen_cmd += " moves " + " ".join(uci_moves)
             self.engine.send(fen_cmd)
             self.pending_move = self.engine.search()
         else:
-            self.pending_move = self.engine.get_move(self.move_history)
+            self.pending_move = self.engine.get_move(uci_moves)
         # tkinter function to keep things thread-safe
         self.root.after(0, self.finish_engine_move)
 
     def finish_engine_move(self):
-        self.make_move(self.pending_move)
+        # Parse the UCI move and push to chess.Board
+        move = chess.Move.from_uci(self.pending_move)
+        if move in self.board.legal_moves:
+            self.board.push(move)
+        self.create_all_pieces()
         self.engine_thinking = False
+
+    def board_to_chess_square(self, row, col):
+        return chess.square(col, row)
+
 
