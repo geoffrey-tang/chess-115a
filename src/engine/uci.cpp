@@ -30,7 +30,7 @@ static std::vector<std::string> split_ws(const std::string& s) {
 }
 
 static int parse_go_depth(const std::vector<std::string>& tok) {
-    int depth = 3;
+    int depth = 5;
 
     for (size_t i = 1; i < tok.size(); i++) {
         if (tok[i] == "depth") {
@@ -58,7 +58,16 @@ std::string move_to_uci(Move m) {
     return s;
 }
 
-static void set_position(const std::vector<std::string>& tok, Board& board) {
+Move uci_to_move(Board& b, StateStack& ss, std::string uci){
+    for(Move m : generate_moves(b, ss)){
+        if(move_to_uci(m) == uci){
+            return m;
+        }
+    }
+    return 0;
+}
+
+static void set_position(const std::vector<std::string>& tok, Board& board, StateStack& ss){
     // "position startpos"
     // "position fen <6 fields>"
     if (tok.size() < 2) return;
@@ -80,6 +89,14 @@ static void set_position(const std::vector<std::string>& tok, Board& board) {
         return;
     }
 
+    if (i < tok.size() && tok[i] == "moves"){
+        i++;
+        for(; i < tok.size(); i++){
+            Move m = uci_to_move(board, ss, tok[i]);
+            if(m == 0) break;
+            do_move(board, ss, m);
+        }
+    }
     // "moves ..." requires make_move() User Story 1 task 1
     // when we have make_move(board, move), apply them here.
     // if (i < tok.size() && tok[i] == "moves") { ... }
@@ -87,7 +104,9 @@ static void set_position(const std::vector<std::string>& tok, Board& board) {
 
 int run_uci_loop() {
 
+    StateStack ss;
     Board board = get_board(STARTPOS_FEN);
+    init_state_stack(board, ss);
 
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -108,7 +127,8 @@ int run_uci_loop() {
             board = get_board(STARTPOS_FEN);
         }
         else if (cmd == "position") {
-            set_position(tok, board);
+            init_state_stack(board, ss);
+            set_position(tok, board, ss);
         }
         else if (cmd == "go") {
             int depth = parse_go_depth(tok);
@@ -123,6 +143,9 @@ int run_uci_loop() {
             } else {
                 std::cout << "bestmove " << move_to_uci(r.best_move) << "\n";
             }
+        }
+        else if (cmd == "d"){
+            print_board(board);
         }
         else if (cmd == "quit") {
             break;

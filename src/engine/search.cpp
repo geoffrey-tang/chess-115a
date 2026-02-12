@@ -46,7 +46,7 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
-SearchResult search_root(Board &b, int depth){
+SearchResult search_root(Board b, int depth){
     SearchResult result;
     result.best_move = 0;
     result.score_cp = 0;
@@ -54,7 +54,7 @@ SearchResult search_root(Board &b, int depth){
     StateStack ss;
     init_state_stack(b, ss);
 
-    int best_score = -1 * std::numeric_limits<int>::max();
+    int best_score = -std::numeric_limits<int>::max();
     std::vector<Move> moves = generate_moves(b, ss);
     Move best_move = moves[0];
 
@@ -80,7 +80,7 @@ SearchResult search_root(Board &b, int depth){
 }
 
 int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth){
-    if(depth == 0) return b.to_move == WHITE ? material_score(b) : -material_score(b); // change this to eval when proper eval is implemented
+    if(depth == 0) return b.to_move == WHITE ? evaluate(b) : -evaluate(b); // change this to eval when proper eval is implemented
     int best = -std::numeric_limits<int>::max();
     std::vector<Move> moves = generate_moves(b, ss);
 

@@ -49,10 +49,11 @@ void print_bitboard(Bitboard bitboard){
 void print_board(Board board){
     char c;
     for(int rank = 7; rank >= 0; rank--){
+        std::cout << " +---+---+---+---+---+---+---+---+\n";
         std::cout << rank + 1 << "|";
         for(int file = 0; file < 8; file++){
             uint64_t mask = get_mask(rank, file);
-            c = '+';
+            c = ' ';
             for(int color = 0; color < 2; color++){
                 for(int piece = 0; piece < 6; piece++){
                     if (board.bb_pieces[color][piece] & mask){
@@ -103,11 +104,12 @@ void print_board(Board board){
                     }
                 }
             }
-            std::cout << c << ' ';
+            std::cout << ' ' << c << " |";
         }
         std::cout << '\n';
     }
-    std::cout << "  ---------------\n  a b c d e f g h\n";
+    std::cout << " +---+---+---+---+---+---+---+---+\n" << 
+                 "   a   b   c   d   e   f   g   h\n\n";
     std::cout << (board.to_move ? "Black" : "White") << " to move\n";
     std::cout << "Castling (B_OOO, B_OO, W_OOO, W_OO): " << std::bitset<4>(board.st->castle) << "\n";
     std::cout << "En passant: " << (board.st->en_passant != 64 ? int_to_algebraic(board.st->en_passant) : "-") << "\n";
