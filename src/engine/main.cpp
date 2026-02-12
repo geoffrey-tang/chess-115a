@@ -23,14 +23,18 @@ int main(void){
     // pos 6: r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10
 
     // mate in 2 (solution: g6g8): 2r2r1k/1b3p2/p3p1Rp/1p1pP3/3P3q/P1NQP3/1n4PP/1BR3K1 w - - 1 24
+
+    /*
     Board board = get_board(fen);
     print_board(board);
     std::cout << "FEN: " << fen << "\n";
 
     std::cout << "Material score (centipawns, +white / -black): "
               << material_score(board) << "\n";
+    */
 
-    /*StateStack ss;
+    /*
+    StateStack ss;
     init_state_stack(board, ss);
     int target_depth = 5;
     for(int depth = 1; depth <= target_depth; depth++){
@@ -39,12 +43,16 @@ int main(void){
     std::cout << std::endl;
     perft_divide(board, target_depth); // compare to stockfish's perft
     */
+
+    /*
     int depth = 5;
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Best move: " << move_to_uci(search(board, depth)) << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
 
     std::cout << "Search at depth " << depth << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " milliseconds" << std::endl;
-    //return run_uci_loop();
-    return 0;
+    */
+    
+    return run_uci_loop();
+    //return 0;
 }

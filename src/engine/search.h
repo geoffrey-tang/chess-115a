@@ -18,7 +18,7 @@ uint64_t perft(Board& b, StateStack& ss, int depth);
 uint64_t perft_divide(Board& b, int depth);
 
 // Main search function, returns the best move
-Move search(Board &b, int depth);
+SearchResult search_root(Board &b, int depth);
 
 // Negamax search through the entire search tree up to depth; implement alpha-beta pruning
 int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth);

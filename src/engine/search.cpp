@@ -46,7 +46,7 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
-SearchResult search(Board &b, int depth){
+SearchResult search_root(Board &b, int depth){
     SearchResult result;
     result.best_move = 0;
     result.score_cp = 0;
