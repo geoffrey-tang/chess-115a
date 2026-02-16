@@ -66,31 +66,50 @@ void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Boar
 // Generates a Board from a FEN string, and set search tree root
 Board get_board(std::string fen);
 
-// Utilities
-std::string int_to_algebraic(uint8_t integer);
 
+// Square utilities
+// Converts from internal uint8_t square representation to algebraic notation
+std::string int_to_algebraic(uint8_t sq);
+
+// Converts from algebraic notation to internal uint8_t square representation 
 uint8_t algebraic_to_int(std::string algebraic);
 
+// Generates a bitboaord mask from rank and file
 uint64_t get_mask(int rank, int file);
 
+// Returns file of a given square (0-7)
 uint8_t get_file(uint8_t square);
 
+// Returns rank of a given square (0-7)
 uint8_t get_rank(uint8_t square);
 
-Move set_move(uint8_t from, uint8_t to, uint16_t flags);
 
+// Move type utilities
+// Create a Move (uint16_t) using src square, dst square, and any flags.
+Move set_move(uint8_t from, uint8_t to, uint16_t flags, uint8_t promo_piece = NONE);
+
+// Get src square from a Move
 uint8_t get_from_sq(Move move);
 
+// Get dst square from a Move
 uint8_t get_to_sq(Move move);
 
+// Get promotion piece from a Move
 uint8_t get_promo(Move move);
 
+// Get a Move's flags
 uint8_t get_move_flags(Move move);
 
+// Returns the promotion piece of a Move
 uint8_t parse_promotion_flag(Move move);
 
-uint8_t empty_square(uint8_t square, Board& board);
 
+// Board utilities
+// Check if a square is empty
+bool empty_square(uint8_t square, Board& board);
+
+// Get the piece that is on a square
 uint8_t piece_on_square(Board& board, uint8_t color, uint8_t sq);
 
+// Prints all bitboards of a Board
 void debug_bb(Board& board);

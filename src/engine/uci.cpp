@@ -132,7 +132,7 @@ int run_uci_loop() {
         }
         else if (cmd == "go") {
             int depth = parse_go_depth(tok);
-            SearchResult r = search_root(board, depth);
+            SearchResult r = iter_deepening(board, depth);
 
             // r.score_cp is from side to move perspective (negamax)
             // UCI usually expects score from side to move so its fine
