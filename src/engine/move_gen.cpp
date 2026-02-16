@@ -115,16 +115,16 @@ std::vector<Move> generate_pseudo(Board& board, uint8_t color){ // this solution
             to = pop_lsb(pawn);
             if(to == board.st->en_passant) movelist.push_back(set_move(from, to, EN_PASSANT));
             else if(to >= 56 && to <= 63 && color == WHITE){
-                movelist.push_back(set_move(from, to, PROMOTION | ((KNIGHT - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((BISHOP - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((ROOK - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((QUEEN - 1) << 12)));
+                movelist.push_back(set_move(from, to, PROMOTION, KNIGHT));
+                movelist.push_back(set_move(from, to, PROMOTION, BISHOP));
+                movelist.push_back(set_move(from, to, PROMOTION, ROOK));
+                movelist.push_back(set_move(from, to, PROMOTION, QUEEN));
             }
             else if(to <= 7 && color == BLACK){
-                movelist.push_back(set_move(from, to, PROMOTION | ((KNIGHT - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((BISHOP - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((ROOK - 1) << 12)));
-                movelist.push_back(set_move(from, to, PROMOTION | ((QUEEN - 1) << 12)));
+                movelist.push_back(set_move(from, to, PROMOTION, KNIGHT));
+                movelist.push_back(set_move(from, to, PROMOTION, BISHOP));
+                movelist.push_back(set_move(from, to, PROMOTION, ROOK));
+                movelist.push_back(set_move(from, to, PROMOTION, QUEEN));
             }
             else movelist.push_back(set_move(from, to, NORMAL));
         }
@@ -209,6 +209,19 @@ std::vector<Move> generate_moves(Board& board, StateStack& ss){
         }
     }
     return legal_moves;
+}
+
+// Generate the list of legal captures in a position
+std::vector<Move> generate_captures(Board& board, StateStack& ss){
+    std::vector<Move> pseudo = generate_pseudo(board, board.to_move);
+    std::vector<Move> captures;
+    captures.reserve(pseudo.size());
+    for(Move m : pseudo){
+        if(legal(board, ss, m) && is_capture(board, m)){
+            captures.push_back(m);
+        }
+    }
+    return captures;
 }
 
 // Plays a move, and pushes it onto the search stack
@@ -478,6 +491,11 @@ Bitboard check_dst(int square, int offset){
     }
 }
 
+bool is_capture(Board& b, Move m){
+    uint64_t to_bb = 1ULL << get_to_sq(m);
+    return (b.bb_colors[!b.to_move] & to_bb) != 0;
+}
+
 // Gets the index of the first non-zero bit
 int lsb(Bitboard b){
     return __builtin_ctzll(b);
@@ -489,6 +507,13 @@ uint8_t pop_lsb(Bitboard& b){
     b &= b - 1;
     return sq;
 }
+
+// Returns number of non-zero bits
+int popcount(Bitboard bb) {
+    return __builtin_popcountll(bb);
+}
+
+
 
 /* might use this for magic bitboards later
 Bitboard rook_mask(uint8_t square){
