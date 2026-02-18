@@ -22,6 +22,8 @@ std::vector<Move> generate_pseudo(Board& board, uint8_t color); // currently gen
 
 std::vector<Move> generate_moves(Board& board, StateStack& ss);
 
+std::vector<Move> generate_captures(Board& board, StateStack& ss);
+
 // Make/unmake moves
 void do_move(Board& board, StateStack& ss, Move move);
 
@@ -38,8 +40,12 @@ bool legal(Board& board, StateStack& ss, Move move);
 
 Bitboard check_dst(int square, int offset);
 
+bool is_capture(Board& b, Move m);
+
 int lsb(Bitboard b);
 
 uint8_t pop_lsb(Bitboard& b);
+
+int popcount(Bitboard bb);
 
 //Bitboard rook_mask(uint8_t square);

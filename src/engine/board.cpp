@@ -284,9 +284,9 @@ Board get_board(std::string fen){
 }
 
 // Convert an uint8_t to its corresponding square in algebraic notation
-std::string int_to_algebraic(uint8_t integer){
-    char file = 'a' + (integer % 8);
-    char rank = '1' + (integer / 8);
+std::string int_to_algebraic(uint8_t sq){
+    char file = 'a' + (sq % 8);
+    char rank = '1' + (sq / 8);
     return std::string{file, rank};
 }
 
@@ -312,7 +312,8 @@ uint8_t get_rank(uint8_t square){
 }
 
 // Create a Move (uint16_t) using src square, dst square, and any flags. If flags contain a promotion, remember to add it: (PROMOTION | ((PIECE - 1) << 12)
-Move set_move(uint8_t from, uint8_t to, uint16_t flags){ // store details about a move into a uint16_t (flags (4 bits) | to (6 bits) | from (6 bits))
+Move set_move(uint8_t from, uint8_t to, uint16_t flags, uint8_t promo_piece){ // store details about a move into a uint16_t (flags (4 bits) | to (6 bits) | from (6 bits))
+    if(promo_piece != NONE) flags = PROMOTION | ((promo_piece - 1) << 12);
     return flags | (to << 6) | from;
 }
 
@@ -349,7 +350,7 @@ uint8_t parse_promotion_flag(Move move){
 }
 
 // Check if a square on a bitboard is empty
-uint8_t empty_square(uint8_t square, Board& board){
+bool empty_square(uint8_t square, Board& board){
     Bitboard occupancy = board.bb_colors[0] | board.bb_colors[1];
     return ~((1ULL << square) & occupancy);
 }

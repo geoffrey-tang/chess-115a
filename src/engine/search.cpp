@@ -1,4 +1,5 @@
 #include <limits>
+#include <algorithm>
 #include "search.h"
 #include "board.h"
 #include "move_gen.h"
@@ -46,7 +47,19 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
-SearchResult search_root(Board b, int depth){
+SearchResult iter_deepening(Board b, int max_depth){
+    SearchResult pv_move; // principal variation
+    pv_move.best_move = 0;
+    pv_move.score_cp = 0;
+
+    for(int i = 1; i <= max_depth; i++){
+        pv_move = search_root(b, i, pv_move.best_move);
+        if(pv_move.score_cp > 10000) break; // end search early if forced mate
+    }
+    return pv_move;
+}
+
+SearchResult search_root(Board& b, int depth, Move prev_best){
     SearchResult result;
     result.best_move = 0;
     result.score_cp = 0;
@@ -56,23 +69,30 @@ SearchResult search_root(Board b, int depth){
 
     int best_score = -std::numeric_limits<int>::max();
     std::vector<Move> moves = generate_moves(b, ss);
-    Move best_move = moves[0];
-
+    std::stable_partition(moves.begin(), moves.end(), [&](Move m){return is_capture(b, m);}); // captures get put first
+    put_move_first(moves, prev_best);
+    
     if(moves.empty()){
         result.best_move = 0;
         result.score_cp = 0;
         return result;
     }
+    Move best_move = moves[0];
+
+    int alpha = -std::numeric_limits<int>::max();
+    int beta = std::numeric_limits<int>::max();
 
     for(Move m : moves) {
         do_move(b, ss, m);
-
-        int score = -alpha_beta_negamax(-std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), b, ss, depth - 1);
+        int score = -alpha_beta_negamax(-beta, -alpha, b, ss, depth - 1);
+        undo_move(b, ss, m);
         if(score > best_score){
             best_score = score;
             best_move = m;
         }
-        undo_move(b, ss, m);
+        if(score > alpha) alpha = score;
+        if(score >= beta) break;
+        
     }
     result.best_move = best_move;
     result.score_cp = best_score;
@@ -80,16 +100,17 @@ SearchResult search_root(Board b, int depth){
 }
 
 int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth){
-    if(depth == 0) return b.to_move == WHITE ? evaluate(b) : -evaluate(b); // change this to eval when proper eval is implemented
+    if(depth == 0) return quiesce(alpha, beta, b, ss); // change this to eval when proper eval is implemented
     int best = -std::numeric_limits<int>::max();
     std::vector<Move> moves = generate_moves(b, ss);
+    std::stable_partition(moves.begin(), moves.end(), [&](Move m){return is_capture(b, m);}); // captures first
 
     // check/stale mate check
     if(moves.empty()){
         uint8_t color = b.to_move;
         bool in_check = square_attacked(b, king_square(b, color), !color);
         if(in_check)
-            return -10000 + ss.ply; // this is to prioritize faster mates
+            return -20000 + ss.ply; // this is to prioritize faster mates
         else
             return 0;
     }
@@ -109,4 +130,33 @@ int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth)
         if(score >= beta) return score; 
     }
     return best;
+}
+
+
+int quiesce(int alpha, int beta, Board& b, StateStack& ss){
+    int static_eval = b.to_move == WHITE ? evaluate(b) : -evaluate(b);
+    int best = static_eval;
+    if(best >= beta) return best;
+    if(best > alpha) alpha = best;
+
+    std::vector<Move> captures = generate_captures(b, ss);
+    for(Move m : captures){
+        do_move(b, ss, m);
+        int score = -quiesce(-beta, -alpha, b, ss);
+        undo_move(b, ss, m);
+
+        if(score >= beta) return score;
+        if(score > best) best = score;
+        if(score > alpha) alpha = score;
+    }
+
+    return best;
+}
+
+
+void put_move_first(std::vector<Move>& moves, Move m){
+    if(m == 0) return;
+    auto iter = std::find(moves.begin(), moves.end(), m);
+    if (iter != moves.end()) std::iter_swap(moves.begin(), iter);
+    return;
 }
