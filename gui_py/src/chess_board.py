@@ -5,6 +5,8 @@ import threading
 import chess
 import UCIEngine
 
+from tkinter import filedialog, Tk
+
 engine_path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "build", "chess_cli"))
 
 class ChessGUI:
@@ -25,6 +27,8 @@ class ChessGUI:
 
         self.drag_data = {"x": 0, "y": 0, "item": None}
         self.editing = False
+        self.bot_vs_bot_active = False
+        self.bot_vs_bot_paused = False
         self.palette_height = 2 * self.square_size + 40
 
         self.setup_ui()
@@ -113,6 +117,10 @@ class ChessGUI:
             self.drag_data["item"] = item
             self.drag_data["x"] = event.x
             self.drag_data["y"] = event.y
+            return
+
+        # Prevent interaction during bot vs bot
+        if self.bot_vs_bot_active:
             return
 
         # Prevent moves while engine is thinking
@@ -239,22 +247,112 @@ class ChessGUI:
         y2 = self.square_size * 8
         self.canvas.create_rectangle(x1, y1, x2, y2, fill="#FFFFFF", outline="", tags="menu_item")
 
-        # Play color dropdown
-        if not hasattr(self, "play_color"):
-            self.play_color = tk.StringVar(value="Play as White")
-        color_options = ["Play as White", "Play as Black"]
-        color_menu = tk.OptionMenu(self.root, self.play_color, *color_options)
-        self.canvas.create_window(x1 + self.menu_size // 2, y_margins, window=color_menu, tags="menu_item")
+        center = x1 + self.menu_size // 2
+        row = 1
 
-        # Play game btn
-        play_button = ttk.Button(self.root, text="Play a game/reset", command=self.game_started)
-        self.canvas.create_window(x1 + self.menu_size // 2, 2 * y_margins, window=play_button, tags="menu_item")
-        # Flip board btn
+        # Game Mode dropdown
+        if not hasattr(self, "game_mode"):
+            self.game_mode = tk.StringVar(value="Player vs Engine")
+        mode_options = ["Player vs Engine", "Bot vs Bot"]
+        mode_menu = tk.OptionMenu(self.root, self.game_mode, *mode_options,
+                                  command=self.on_mode_change)
+        self.canvas.create_window(center, row * y_margins, window=mode_menu, tags="menu_item")
+        row += 1
+
+        is_bot_vs_bot = self.game_mode.get() == "Bot vs Bot"
+
+        if is_bot_vs_bot and self.bot_vs_bot_active:
+            # During active bot vs bot game: show pause/stop controls
+            pause_text = "Resume" if self.bot_vs_bot_paused else "Pause"
+            pause_button = ttk.Button(self.root, text=pause_text, command=self.toggle_pause)
+            self.canvas.create_window(center, row * y_margins, window=pause_button, tags="menu_item")
+            row += 1
+
+            stop_button = ttk.Button(self.root, text="Stop", command=self.stop_bot_game)
+            self.canvas.create_window(center, row * y_margins, window=stop_button, tags="menu_item")
+            row += 1
+
+        elif is_bot_vs_bot:
+            # Bot vs Bot setup controls
+            if not hasattr(self, "think_time"):
+                self.think_time = tk.IntVar(value=1000)
+            if not hasattr(self, "move_delay"):
+                self.move_delay = tk.IntVar(value=500)
+            if not hasattr(self, "white_engine_path"):
+                self.white_engine_path = engine_path
+            if not hasattr(self, "black_engine_path"):
+                self.black_engine_path = engine_path
+
+            # Think time slider
+            think_frame = ttk.Frame(self.root)
+            ttk.Label(think_frame, text="Think time:").pack(side="left", padx=(0, 5))
+            think_val = ttk.Label(think_frame, text=f"{self.think_time.get()}ms", width=7)
+            def update_think(val, lbl=think_val):
+                self.think_time.set(int(float(val)))
+                lbl.config(text=f"{self.think_time.get()}ms")
+            ttk.Scale(think_frame, from_=100, to=5000, variable=self.think_time,
+                      length=150, command=update_think).pack(side="left")
+            think_val.pack(side="left", padx=(5, 0))
+            self.canvas.create_window(center, row * y_margins, window=think_frame, tags="menu_item")
+            row += 1
+
+            # Move delay slider
+            delay_frame = ttk.Frame(self.root)
+            ttk.Label(delay_frame, text="Move delay:").pack(side="left", padx=(0, 5))
+            delay_val = ttk.Label(delay_frame, text=f"{self.move_delay.get()}ms", width=7)
+            def update_delay(val, lbl=delay_val):
+                self.move_delay.set(int(float(val)))
+                lbl.config(text=f"{self.move_delay.get()}ms")
+            ttk.Scale(delay_frame, from_=0, to=3000, variable=self.move_delay,
+                      length=150, command=update_delay).pack(side="left")
+            delay_val.pack(side="left", padx=(5, 0))
+            self.canvas.create_window(center, row * y_margins, window=delay_frame, tags="menu_item")
+            row += 1
+
+            # White engine selector
+            w_name = os.path.basename(self.white_engine_path)
+            w_frame = ttk.Frame(self.root)
+            ttk.Label(w_frame, text=f"W: {w_name}").pack(side="left", padx=(0, 5))
+            ttk.Button(w_frame, text="Browse",
+                       command=lambda: self.browse_engine("white")).pack(side="left")
+            self.canvas.create_window(center, row * y_margins, window=w_frame, tags="menu_item")
+            row += 1
+
+            # Black engine selector
+            b_name = os.path.basename(self.black_engine_path)
+            b_frame = ttk.Frame(self.root)
+            ttk.Label(b_frame, text=f"B: {b_name}").pack(side="left", padx=(0, 5))
+            ttk.Button(b_frame, text="Browse",
+                       command=lambda: self.browse_engine("black")).pack(side="left")
+            self.canvas.create_window(center, row * y_margins, window=b_frame, tags="menu_item")
+            row += 1
+
+            # Start match button
+            play_button = ttk.Button(self.root, text="Start match", command=self.game_started)
+            self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
+            row += 1
+
+        else:
+            # Player vs Engine
+            if not hasattr(self, "play_color"):
+                self.play_color = tk.StringVar(value="Play as White")
+            color_options = ["Play as White", "Play as Black"]
+            color_menu = tk.OptionMenu(self.root, self.play_color, *color_options)
+            self.canvas.create_window(center, row * y_margins, window=color_menu, tags="menu_item")
+            row += 1
+
+            play_button = ttk.Button(self.root, text="Play a game/reset", command=self.game_started)
+            self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
+            row += 1
+
+        # Common buttons
         flip_button = ttk.Button(self.root, text="Do a flip!", command=self.flip_board)
-        self.canvas.create_window(x1 + self.menu_size // 2, 3 * y_margins, window=flip_button, tags="menu_item")
-        # Board Editor btn
-        editor_button = ttk.Button(self.root, text="Board Editor", command=self.board_editor)
-        self.canvas.create_window(x1 + self.menu_size // 2, 4 * y_margins, window=editor_button, tags="menu_item")
+        self.canvas.create_window(center, row * y_margins, window=flip_button, tags="menu_item")
+        row += 1
+
+        if not self.bot_vs_bot_active:
+            editor_button = ttk.Button(self.root, text="Board Editor", command=self.board_editor)
+            self.canvas.create_window(center, row * y_margins, window=editor_button, tags="menu_item")
 
     def board_editor(self, _value=None):
         self.editing = True
@@ -352,6 +450,10 @@ class ChessGUI:
         self.canvas.delete("palette")
         self.canvas.config(height=self.square_size * 8)
         self.clear_menu()
+
+        if self.game_mode.get() == "Bot vs Bot":
+            self.start_bot_vs_bot(fen=self.start_fen)
+            return
 
         self.engine = UCIEngine.UCIEngine(engine_path)
         self.player_is_white = white_to_play
@@ -464,6 +566,9 @@ class ChessGUI:
 
     # main game loop
     def game_started(self):
+        if self.game_mode.get() == "Bot vs Bot":
+            self.start_bot_vs_bot()
+            return
         self.engine = UCIEngine.UCIEngine(engine_path)
         self.board = chess.Board()
         self.player_is_white = self.play_color.get() == "Play as White"
@@ -479,6 +584,106 @@ class ChessGUI:
         if not self.player_is_white:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
+
+    def on_mode_change(self, _value=None):
+        self.cleanup_bot_engines()
+        self.menu()
+
+    def browse_engine(self, color):
+        path = filedialog.askopenfilename(
+            title=f"Select {color.title()} Engine",
+            filetypes=[("Executable files", "*.exe"), ("All files", "*.*")]
+        )
+        if path:
+            if color == "white":
+                self.white_engine_path = path
+            else:
+                self.black_engine_path = path
+            self.menu()
+
+    def cleanup_bot_engines(self):
+        self.bot_vs_bot_active = False
+        self.bot_vs_bot_paused = False
+        if hasattr(self, 'white_engine') and self.white_engine:
+            self.white_engine.quit()
+            self.white_engine = None
+        if hasattr(self, 'black_engine') and self.black_engine:
+            self.black_engine.quit()
+            self.black_engine = None
+
+    def start_bot_vs_bot(self, fen=None):
+        self.cleanup_bot_engines()
+        if fen:
+            self.board = chess.Board(fen)
+            self.start_fen = fen
+        else:
+            self.board = chess.Board()
+            self.start_fen = None
+        w_path = self.white_engine_path if hasattr(self, 'white_engine_path') else engine_path
+        b_path = self.black_engine_path if hasattr(self, 'black_engine_path') else engine_path
+        self.white_engine = UCIEngine.UCIEngine(w_path)
+        self.black_engine = UCIEngine.UCIEngine(b_path)
+        self.bot_vs_bot_active = True
+        self.bot_vs_bot_paused = False
+        self.flipped = False
+        self.engine_thinking = False
+        self.draw_board()
+        self.load_images()
+        self.create_all_pieces()
+        self.menu()
+        delay = self.move_delay.get() if hasattr(self, 'move_delay') else 500
+        self.root.after(delay, self.bot_vs_bot_loop)
+
+    def bot_vs_bot_loop(self):
+        if not self.bot_vs_bot_active or self.bot_vs_bot_paused:
+            return
+        if self.board.is_game_over():
+            self.bot_vs_bot_active = False
+            self.menu()
+            return
+        engine = self.white_engine if self.board.turn == chess.WHITE else self.black_engine
+        threading.Thread(target=self.bot_think, args=(engine,), daemon=True).start()
+
+    def bot_think(self, engine):
+        try:
+            movetime = self.think_time.get() if hasattr(self, 'think_time') else 1000
+            uci_moves = [m.uci() for m in self.board.move_stack]
+            if self.start_fen:
+                fen_cmd = f"position fen {self.start_fen}"
+                if uci_moves:
+                    fen_cmd += " moves " + " ".join(uci_moves)
+                engine.send(fen_cmd)
+                best_move = engine.search(movetime_ms=movetime)
+            else:
+                best_move = engine.get_move(uci_moves, movetime_ms=movetime)
+            self.root.after(0, self.finish_bot_move, best_move)
+        except Exception as e:
+            print(f"Engine error: {e}")
+            self.root.after(0, self.stop_bot_game)
+
+    def finish_bot_move(self, move_uci):
+        if not self.bot_vs_bot_active:
+            return
+        move = chess.Move.from_uci(move_uci)
+        if move in self.board.legal_moves:
+            self.board.push(move)
+        self.create_all_pieces()
+        if self.board.is_game_over():
+            self.bot_vs_bot_active = False
+            self.menu()
+            return
+        delay = self.move_delay.get() if hasattr(self, 'move_delay') else 500
+        self.root.after(delay, self.bot_vs_bot_loop)
+
+    def toggle_pause(self):
+        self.bot_vs_bot_paused = not self.bot_vs_bot_paused
+        if not self.bot_vs_bot_paused:
+            self.bot_vs_bot_loop()
+        self.menu()
+
+    def stop_bot_game(self):
+        self.cleanup_bot_engines()
+        self.menu()
 
     def flip_board(self):
         self.flipped = not self.flipped
