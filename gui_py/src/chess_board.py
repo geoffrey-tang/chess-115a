@@ -31,6 +31,7 @@ class ChessGUI:
         self.bot_vs_bot_paused = False
         self.palette_height = 2 * self.square_size + 40
 
+        self.move_hints = set()
         self.setup_ui()
         self.draw_board()
         self.menu()
@@ -127,6 +128,7 @@ class ChessGUI:
         if self.engine_thinking:
             return
         if "piece" not in self.canvas.gettags(item):
+            self.clear_move_hints()
             return
 
         # Use chess.Board to check turn and piece ownership
@@ -134,11 +136,15 @@ class ChessGUI:
         square = self.board_to_chess_square(row, col)
         piece = self.board.piece_at(square)
         if piece is None or piece.color != self.board.turn:
+            self.clear_move_hints()
             return
         # Only allow dragging the player's own color
         player_color = chess.WHITE if self.player_is_white else chess.BLACK
         if piece.color != player_color:
+            self.clear_move_hints()
             return
+
+        self.show_move_hints(square)
 
         self.drag_data["item"] = item
         self.drag_data["x"] = event.x
@@ -163,7 +169,13 @@ class ChessGUI:
     # starting engine searching
     def drag_release(self, event):
         item = self.drag_data["item"]
-        if item is None or self.engine_thinking:
+        
+        if item is None:
+            return
+
+        self.clear_move_hints()
+
+        if self.engine_thinking:
             return
 
         cx, cy = self.canvas.coords(item)
@@ -798,4 +810,41 @@ class ChessGUI:
     def board_to_chess_square(self, row, col):
         return chess.square(col, row)
 
+    def chess_square_to_board(self, square):
+        return chess.square_rank(square), chess.square_file(square)
 
+    def show_move_hints(self, square):
+        self.clear_move_hints()
+
+        legal_moves = [m for m in self.board.legal_moves if m.from_square == square]
+
+        for move in legal_moves:
+            r, c = self.chess_square_to_board(move.to_square)
+            x, y = self.board_to_screen(r, c)
+
+            radius = self.square_size // 6
+            hint = self.canvas.create_oval(
+                x - radius, y - radius,
+                x + radius, y + radius,
+                fill="#888888",
+                outline="",
+                tags="move_hint"
+            )
+            self.move_hints.add(hint)
+
+        self.canvas.tag_raise("move_hint")
+
+    def clear_move_hints(self):
+        for hint in self.move_hints:
+            self.canvas.delete(hint)
+        self.move_hints.clear()
+
+
+    def check_game_over(self):
+        if self.board.is_checkmate():
+            winner = "Black" if self.board.turn else "White"
+            msg.showinfo("Game Over", f"Checkmate! {winner} wins.")
+        elif self.board.is_stalemate():
+            msg.showinfo("Game Over", "Stalemate!")
+        elif self.board.is_insufficient_material():
+            msg.showinfo("Game Over", "Draw (insufficient material)")
