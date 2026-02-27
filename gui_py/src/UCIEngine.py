@@ -43,3 +43,10 @@ class UCIEngine:
         else:
             self.send("position startpos")
         return self.search(movetime_ms)
+
+    def quit(self):
+        try:
+            self.send("quit")
+            self.engine.wait(timeout=2)
+        except Exception:
+            self.engine.kill()
