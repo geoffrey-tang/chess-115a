@@ -32,9 +32,15 @@ class ChessGUI:
         self.palette_height = 2 * self.square_size + 40
 
         self.move_hints = set()
+        self.engine_thinking = False
         self.setup_ui()
         self.draw_board()
         self.menu()
+
+        self.analysis_mode = False
+        self.analysis_engine = None
+        self.analysis_running = False
+        self.analysis_eval_text = None
 
     # initialization of tkinter frame and canvas objects
     def setup_ui(self):
@@ -232,6 +238,7 @@ class ChessGUI:
             return
 
         self.board.push(move)
+        self.restart_analysis()
         self.create_all_pieces()
 
         self.drag_data["item"] = None
@@ -353,18 +360,25 @@ class ChessGUI:
             self.canvas.create_window(center, row * y_margins, window=color_menu, tags="menu_item")
             row += 1
 
-            play_button = ttk.Button(self.root, text="Play a game/reset", command=self.game_started)
-            self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
-            row += 1
+        play_button = ttk.Button(self.root, text="Play a game/reset", command=self.game_started)
+        self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
+        row += 1
 
         # Common buttons
         flip_button = ttk.Button(self.root, text="Do a flip!", command=self.flip_board)
         self.canvas.create_window(center, row * y_margins, window=flip_button, tags="menu_item")
         row += 1
 
+        # Board Editor button (RESTORED)
         if not self.bot_vs_bot_active:
             editor_button = ttk.Button(self.root, text="Board Editor", command=self.board_editor)
             self.canvas.create_window(center, row * y_margins, window=editor_button, tags="menu_item")
+            row += 1
+
+        # Analysis Board button (NEW — separate from editor)
+        analysis_button = ttk.Button(self.root, text="Analysis Board", command=self.start_analysis_mode)
+        self.canvas.create_window(center, row * y_margins, window=analysis_button, tags="menu_item")
+        row += 1
 
     def board_editor(self, _value=None):
         self.editing = True
@@ -480,6 +494,8 @@ class ChessGUI:
         if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
+	
+        self.restart_analysis()
 
     def draw_palette(self):
         board_height = self.square_size * 8
@@ -848,3 +864,75 @@ class ChessGUI:
             msg.showinfo("Game Over", "Stalemate!")
         elif self.board.is_insufficient_material():
             msg.showinfo("Game Over", "Draw (insufficient material)")
+
+    def start_analysis_mode(self):
+        self.analysis_mode = True
+        self.analysis_running = True
+
+        # If no board exists yet → start from default
+        if not hasattr(self, "board"):
+            self.board = chess.Board()
+
+        # If editor is active → build board from editor pieces
+        if self.editing:
+            white_to_play = True
+            if hasattr(self, "selected_side"):
+                white_to_play = self.selected_side.get() == "White to play"
+            self.board = chess.Board(self.board_to_fen(white_to_play))
+
+        self.analysis_engine = UCIEngine.UCIEngine(engine_path)
+
+        self.create_analysis_display()
+
+        threading.Thread(target=self.analysis_loop, daemon=True).start()
+
+    def create_analysis_display(self):
+        if self.analysis_eval_text:
+            self.canvas.delete(self.analysis_eval_text)
+
+        x = self.square_size * 8 + 200
+        y = self.square_size * 8 - 100
+
+        self.analysis_eval_text = self.canvas.create_text(x, y, text="Evaluating...", font=("Arial", 14), fill="black")
+
+    def analysis_loop(self):
+        while self.analysis_running:
+            try:
+                fen = self.board.fen()
+
+                self.analysis_engine.send(f"position fen {fen}")
+
+                info = self.analysis_engine.analyze(movetime_ms=300)
+
+                self.root.after(0, self.update_analysis_display, info)
+
+            except Exception as e:
+                print("Analysis error:", e)
+                break
+
+    def update_analysis_display(self, info):
+        if not self.analysis_eval_text:
+            return
+
+        score = info.get("score", "?")
+        pv = info.get("pv", [])
+        best_move = info.get("best_move")
+
+        text = f"Eval: {score}"
+
+        if pv:
+            text += "\nBest line:\n" + " ".join(pv)
+        elif best_move:
+            text += f"\nBest move: {best_move}"
+        else:
+            text += "\nBest move: (searching...)"
+
+        self.canvas.itemconfig(self.analysis_eval_text, text=text)
+
+    def restart_analysis(self):
+        if not self.analysis_mode:
+            return
+
+        self.analysis_running = False
+        self.analysis_running = True
+        threading.Thread(target=self.analysis_loop, daemon=True).start()

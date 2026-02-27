@@ -50,3 +50,52 @@ class UCIEngine:
             self.engine.wait(timeout=2)
         except Exception:
             self.engine.kill()
+
+    def analyze(self, movetime_ms = 300):
+        """
+        Ask engine for evaluation + principal variation.
+        Returns dict: { score: str, pv: [moves] }
+        """
+
+        self.send("isready")
+        self.wait_ready()
+
+        self.send(f"go movetime {movetime_ms}")
+
+        score = None
+        best_pv = []
+        best_move = None
+
+        while True:
+            line = self.engine.stdout.readline().strip()
+
+            if not line:
+                continue
+
+            if line.startswith("info"):
+                parts = line.split()
+
+                if "score" in parts:
+                    try:
+                        idx = parts.index("score")
+                        if parts[idx + 1] == "cp":
+                            score = int(parts[idx + 2]) / 100
+                        elif parts[idx + 1] == "mate":
+                            score = f"Mate in {parts[idx + 2]}"
+                    except:
+                        pass
+
+                if "pv" in parts: 
+                    best_pv = parts[parts.index("pv") + 1:]
+            
+            if line.startswith("bestmove"):
+                best_move = line.split()[1]
+                break
+            
+        return {"score": score, "pv": best_pv, "best_move": best_move}
+
+    def wait_ready(self):
+        while True:
+            line = self.engine.stdout.readline().strip()
+            if line == "readyok":
+                break
