@@ -5,7 +5,7 @@ import threading
 import chess
 import UCIEngine
 
-from tkinter import filedialog, Tk
+from tkinter import filedialog, messagebox, Tk
 
 engine_path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "build", "chess_cli"))
 
@@ -32,6 +32,11 @@ class ChessGUI:
         self.palette_height = 2 * self.square_size + 40
 
         self.move_hints = set()
+        self.last_move = None
+        self.selected_square = None
+        self.move_san_history = []
+        self.history_view_index = None
+        self.history_widget = None
         self.setup_ui()
         self.draw_board()
         self.menu()
@@ -57,6 +62,18 @@ class ChessGUI:
     def draw_board(self):
         self.canvas.delete("square")  # only delete squares, not pieces
 
+        # Squares involved in the last move
+        last_move_squares = set()
+        if self.last_move:
+            last_move_squares.add((
+                chess.square_rank(self.last_move.from_square),
+                chess.square_file(self.last_move.from_square),
+            ))
+            last_move_squares.add((
+                chess.square_rank(self.last_move.to_square),
+                chess.square_file(self.last_move.to_square),
+            ))
+
         # Draw squares (screen coordinates)
         for screen_row in range(8):
             for screen_col in range(8):
@@ -67,9 +84,42 @@ class ChessGUI:
 
                 # Convert to board coords to get correct color pattern
                 board_row, board_col = self.screen_to_board(x1 + 1, y1 + 1)
-                color = self.light_square if (board_row + board_col) % 2 == 1 else self.dark_square
+                is_light = (board_row + board_col) % 2 == 1
+
+                if self.selected_square == (board_row, board_col):
+                    color = "#f6f669" if is_light else "#baca2b"
+                elif (board_row, board_col) in last_move_squares:
+                    color = "#cdd26e" if is_light else "#aaa23a"
+                else:
+                    color = self.light_square if is_light else self.dark_square
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="", tags="square")
+
+        # Rank labels (1–8) along the left edge of the board
+        for screen_row in range(8):
+            board_row, board_col = self.screen_to_board(1, screen_row * self.square_size + 1)
+            is_light = (board_row + board_col) % 2 == 1
+            text_color = self.dark_square if is_light else self.light_square
+            self.canvas.create_text(
+                3, screen_row * self.square_size + 3,
+                text=str(board_row + 1), anchor="nw",
+                fill=text_color, font=("Arial", 10, "bold"), tags="square",
+            )
+
+        # File labels (a–h) along the bottom edge of the board
+        for screen_col in range(8):
+            board_row, board_col = self.screen_to_board(
+                screen_col * self.square_size + 1,
+                7 * self.square_size + 1,
+            )
+            is_light = (board_row + board_col) % 2 == 1
+            text_color = self.dark_square if is_light else self.light_square
+            self.canvas.create_text(
+                screen_col * self.square_size + self.square_size - 3,
+                7 * self.square_size + self.square_size - 3,
+                text=chr(ord('a') + board_col), anchor="se",
+                fill=text_color, font=("Arial", 10, "bold"), tags="square",
+            )
 
         # Keep squares below pieces
         self.canvas.tag_lower("square")
@@ -124,6 +174,10 @@ class ChessGUI:
         if self.bot_vs_bot_active:
             return
 
+        # Block dragging while browsing move history
+        if self.history_view_index is not None:
+            return
+
         # Prevent moves while engine is thinking
         if self.engine_thinking:
             return
@@ -144,6 +198,8 @@ class ChessGUI:
             self.clear_move_hints()
             return
 
+        self.selected_square = (row, col)
+        self.draw_board()
         self.show_move_hints(square)
 
         self.drag_data["item"] = item
@@ -222,19 +278,31 @@ class ChessGUI:
         piece = self.board.piece_at(from_sq)
 
         if piece and piece.piece_type == chess.PAWN and row in (0, 7):
-            move = chess.Move(from_sq, to_sq, promotion=chess.QUEEN)
+            promo = self.ask_promotion(piece.color == chess.WHITE)
+            move = chess.Move(from_sq, to_sq, promotion=promo)
 
         if move not in self.board.legal_moves:
-
             x, y = self.board_to_screen(old_row, old_col)
             self.canvas.coords(item, x, y)
             self.drag_data["item"] = None
+            self.selected_square = None
+            self.draw_board()
             return
 
+        self.record_move(move)
+        self.last_move = move
+        self.selected_square = None
         self.board.push(move)
+        self.draw_board()
         self.create_all_pieces()
 
         self.drag_data["item"] = None
+
+        self.update_status()
+
+        if self.is_over():
+            self.check_game_over()
+            return
 
         # engine responds after player's move in a background thread
         player_color = chess.WHITE if self.player_is_white else chess.BLACK
@@ -244,6 +312,7 @@ class ChessGUI:
 
     def clear_menu(self):
         self.canvas.delete("menu_item")
+        self.canvas.delete("status")
 
     # ui/menu drawing
     def menu(self):
@@ -257,7 +326,7 @@ class ChessGUI:
         y1 = 0
         x2 = x1 + self.menu_size
         y2 = self.square_size * 8
-        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#FFFFFF", outline="", tags="menu_item")
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#f8f8f8", outline="", tags="menu_item")
 
         center = x1 + self.menu_size // 2
         row = 1
@@ -353,8 +422,10 @@ class ChessGUI:
             self.canvas.create_window(center, row * y_margins, window=color_menu, tags="menu_item")
             row += 1
 
-            play_button = ttk.Button(self.root, text="Play a game/reset", command=self.game_started)
-            self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
+            btn_frame = ttk.Frame(self.root)
+            ttk.Button(btn_frame, text="Play a game", command=self.game_started).pack(side="left", padx=(0, 4))
+            ttk.Button(btn_frame, text="Resign", command=self.forfeit_game).pack(side="left")
+            self.canvas.create_window(center, row * y_margins, window=btn_frame, tags="menu_item")
             row += 1
 
         # Common buttons
@@ -365,6 +436,39 @@ class ChessGUI:
         if not self.bot_vs_bot_active:
             editor_button = ttk.Button(self.root, text="Board Editor", command=self.board_editor)
             self.canvas.create_window(center, row * y_margins, window=editor_button, tags="menu_item")
+            row += 1
+
+        if hasattr(self, "board") and not self.editing:
+            self.draw_history_panel(row)
+
+        self.update_status()
+
+    def update_status(self):
+        self.canvas.delete("status")
+        if not hasattr(self, "board") or self.editing:
+            return
+
+        x = self.square_size * 8 + self.menu_size // 2
+        y = self.square_size * 8 - 25  # near the bottom of the sidebar
+
+        if self.board.is_checkmate():
+            winner = "Black" if self.board.turn == chess.WHITE else "White"
+            text, color = f"Checkmate — {winner} wins!", "#c0392b"
+        elif self.board.is_stalemate():
+            text, color = "Stalemate — Draw", "#555555"
+        elif self.board.is_insufficient_material():
+            text, color = "Draw — insufficient material", "#555555"
+        elif self.board.is_repetition(3):
+            text, color = "Draw — threefold repetition", "#555555"
+        elif self.board.is_check():
+            turn = "White" if self.board.turn == chess.WHITE else "Black"
+            text, color = f"{turn} to move  •  CHECK!", "#c0392b"
+        else:
+            turn = "White" if self.board.turn == chess.WHITE else "Black"
+            text, color = f"{turn} to move", "#222222"
+
+        self.canvas.create_text(x, y, text=text, fill=color,
+                                font=("Arial", 12, "bold"), tags="status")
 
     def board_editor(self, _value=None):
         self.editing = True
@@ -388,7 +492,7 @@ class ChessGUI:
         y1 = 0
         x2 = x1 + self.menu_size
         y2 = board_height + self.palette_height
-        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#FFFFFF", outline="", tags="menu_item")
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#f8f8f8", outline="", tags="menu_item")
 
         # Back button
         back_button = ttk.Button(self.root, text="Back", command=self.menu)
@@ -401,7 +505,7 @@ class ChessGUI:
         self.canvas.create_window(x1 + self.menu_size // 2, 2 * y_margins, window=option_menu, tags="menu_item")
 
         # Castling rights label
-        castling_label = tk.Label(self.root, text="Castling Rights", bg="#FFFFFF")
+        castling_label = tk.Label(self.root, text="Castling Rights", bg="#f8f8f8")
         self.canvas.create_window(x1 + self.menu_size // 2, 3 * y_margins, window=castling_label, tags="menu_item")
 
         # Castling rights checkboxes
@@ -413,7 +517,7 @@ class ChessGUI:
         center = x1 + self.menu_size // 2
 
         # White row
-        white_label = tk.Label(self.root, text="White", bg="#FFFFFF")
+        white_label = tk.Label(self.root, text="White", bg="#f8f8f8")
         self.canvas.create_window(center - 80, 3.5 * y_margins, window=white_label, tags="menu_item")
         white_oo = ttk.Checkbutton(self.root, text="O-O", variable=self.white_kingside)
         self.canvas.create_window(center + 10, 3.5 * y_margins, window=white_oo, tags="menu_item")
@@ -421,7 +525,7 @@ class ChessGUI:
         self.canvas.create_window(center + 90, 3.5 * y_margins, window=white_ooo, tags="menu_item")
 
         # Black row
-        black_label = tk.Label(self.root, text="Black", bg="#FFFFFF")
+        black_label = tk.Label(self.root, text="Black", bg="#f8f8f8")
         self.canvas.create_window(center - 80, 4 * y_margins, window=black_label, tags="menu_item")
         black_oo = ttk.Checkbutton(self.root, text="O-O", variable=self.black_kingside)
         self.canvas.create_window(center + 10, 4 * y_margins, window=black_oo, tags="menu_item")
@@ -470,6 +574,9 @@ class ChessGUI:
         self.engine = UCIEngine.UCIEngine(engine_path)
         self.player_is_white = white_to_play
         self.flipped = not self.player_is_white
+        self.move_san_history = []
+        self.history_view_index = None
+        self.history_widget = None
         self.draw_board()
         self.create_all_pieces()
         self.engine_thinking = False
@@ -586,6 +693,11 @@ class ChessGUI:
         self.player_is_white = self.play_color.get() == "Play as White"
         self.flipped = not self.player_is_white
         self.start_fen = None
+        self.last_move = None
+        self.selected_square = None
+        self.move_san_history = []
+        self.history_view_index = None
+        self.history_widget = None
         self.draw_board()
         self.load_images()
         self.create_all_pieces()
@@ -596,6 +708,13 @@ class ChessGUI:
         if not self.player_is_white:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
+
+    def forfeit_game(self):
+        if not hasattr(self, "board") or self.is_over():
+            return
+        winner = "Black" if self.player_is_white else "White"
+        messagebox.showinfo("Game Over", f"You forfeited. {winner} wins.")
+        self.engine_thinking = True  # block further moves
 
     def on_mode_change(self, _value=None):
         self.cleanup_bot_engines()
@@ -639,6 +758,11 @@ class ChessGUI:
         self.bot_vs_bot_paused = False
         self.flipped = False
         self.engine_thinking = False
+        self.last_move = None
+        self.selected_square = None
+        self.move_san_history = []
+        self.history_view_index = None
+        self.history_widget = None
         self.draw_board()
         self.load_images()
         self.create_all_pieces()
@@ -649,7 +773,7 @@ class ChessGUI:
     def bot_vs_bot_loop(self):
         if not self.bot_vs_bot_active or self.bot_vs_bot_paused:
             return
-        if self.board.is_game_over():
+        if self.is_over():
             self.bot_vs_bot_active = False
             self.menu()
             return
@@ -678,9 +802,14 @@ class ChessGUI:
             return
         move = chess.Move.from_uci(move_uci)
         if move in self.board.legal_moves:
+            self.record_move(move)
             self.board.push(move)
-        self.create_all_pieces()
-        if self.board.is_game_over():
+            self.last_move = move
+        if self.history_view_index is None:
+            self.draw_board()
+            self.create_all_pieces()
+        self.update_status()
+        if self.is_over():
             self.bot_vs_bot_active = False
             self.menu()
             return
@@ -700,6 +829,8 @@ class ChessGUI:
     def flip_board(self):
         self.flipped = not self.flipped
         self.draw_board()
+        if not hasattr(self, "pieces"):
+            return
         for item, (row, col, piece_code, iswhite) in self.pieces.items():
             x, y = self.board_to_screen(row, col)
             self.canvas.coords(item, x, y)
@@ -803,9 +934,16 @@ class ChessGUI:
         # Parse the UCI move and push to chess.Board
         move = chess.Move.from_uci(self.pending_move)
         if move in self.board.legal_moves:
+            self.record_move(move)
             self.board.push(move)
-        self.create_all_pieces()
+            self.last_move = move
         self.engine_thinking = False
+        if self.history_view_index is None:
+            self.draw_board()
+            self.create_all_pieces()
+        self.update_status()
+        if self.is_over():
+            self.check_game_over()
 
     def board_to_chess_square(self, row, col):
         return chess.square(col, row)
@@ -840,11 +978,191 @@ class ChessGUI:
         self.move_hints.clear()
 
 
+    def record_move(self, move):
+        # Record the SAN for move. Must be called before board.push(move)
+        self.move_san_history.append(self.board.san(move))
+        self.refresh_history_widget()
+
+    def draw_history_panel(self, row):
+        # Create a  move-history Text widget in the sidebar.
+        y_margins = 50
+        sidebar_x = self.square_size * 8
+        sidebar_w = self.menu_size
+        board_h = self.square_size * 8
+
+        top_y = row * y_margins + 30
+        bot_y = board_h - 55           # leave room for status label
+        panel_h = bot_y - top_y
+        panel_w = sidebar_w - 20
+
+        if panel_h < 60:
+            self.history_widget = None
+            return
+
+        if self.history_widget is not None and self.history_widget.winfo_exists():
+            self.history_widget.destroy()
+        self.history_widget = None
+
+        frame = tk.Frame(self.root, bg="#f8f8f8")
+
+        txt = tk.Text(
+            frame,
+            font=("Courier", 10),
+            wrap="none",
+            state="disabled",
+            cursor="arrow",
+            relief="flat",
+            bg="#f8f8f8",
+            padx=4, pady=2,
+            exportselection=False,
+        )
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=txt.yview)
+        txt.config(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        txt.pack(side="left", fill="both", expand=True)
+
+        self.history_widget = txt
+        center_x = sidebar_x + sidebar_w // 2
+        mid_y = (top_y + bot_y) // 2
+        self.canvas.create_window(
+            center_x, mid_y,
+            window=frame,
+            width=panel_w,
+            height=panel_h,
+            tags="menu_item",
+        )
+        self.refresh_history_widget()
+
+    def refresh_history_widget(self):
+        # Rewrite the Text widget contents from move_san_history.
+        txt = self.history_widget
+        if txt is None or not txt.winfo_exists():
+            return
+
+        txt.config(state="normal")
+        txt.delete("1.0", "end")
+
+        for i, san in enumerate(self.move_san_history):
+            is_white = (i % 2 == 0)
+            if is_white:
+                txt.insert("end", f"{i // 2 + 1:>3}. ")
+            tag = f"move_{i}"
+            txt.insert("end", san, tag)
+            if is_white:
+                # pad so black's move aligns; SAN rarely exceeds 7 chars
+                txt.insert("end", " " * max(1, 8 - len(san)))
+            else:
+                txt.insert("end", "\n")
+
+        # If the last move was white's, close the line
+        if self.move_san_history and len(self.move_san_history) % 2 == 1:
+            txt.insert("end", "\n")
+
+        for i in range(len(self.move_san_history)):
+            tag = f"move_{i}"
+            if i == self.history_view_index:
+                txt.tag_config(tag, background="#2962ff", foreground="white")
+            else:
+                txt.tag_config(tag, background="", foreground="black")
+            txt.tag_bind(tag, "<Button-1>",
+                         lambda _, idx=i: self.on_history_click(idx))
+            txt.tag_bind(tag, "<Enter>",
+                         lambda _, t=tag: txt.tag_config(t, underline=True))
+            txt.tag_bind(tag, "<Leave>",
+                         lambda _, t=tag: txt.tag_config(t, underline=False))
+
+        txt.config(state="disabled")
+
+        # Scroll to the viewed move, or to the end if live
+        if self.history_view_index is not None:
+            ranges = txt.tag_ranges(f"move_{self.history_view_index}")
+            if ranges:
+                txt.see(ranges[0])
+        else:
+            txt.see("end")
+
+    def on_history_click(self, index):
+        # Click on a move entry in the history widget
+        # Clicking the last move exits history view (returns to live)
+        if index >= len(self.move_san_history) - 1:
+            self.exit_history_view()
+            return
+        self.history_view_index = index
+        self._render_history_position(index)
+        self.refresh_history_widget()
+
+    def _render_history_position(self, index):
+        # Show the board after `index` half-moves without touching self.board
+        start_fen = getattr(self, "start_fen", None)
+        temp = chess.Board(start_fen) if start_fen else chess.Board()
+        moves = list(self.board.move_stack)
+        for move in moves[:index + 1]:
+            temp.push(move)
+
+        # Use the move that arrived at this position for the highlight
+        saved = self.last_move
+        self.last_move = moves[index] if moves else None
+        self.draw_board()
+        self.last_move = saved
+
+        self.canvas.delete("piece")
+        self.pieces = {}
+        for square, piece in temp.piece_map().items():
+            row, col = chess.square_rank(square), chess.square_file(square)
+            code = ("w" if piece.color == chess.WHITE else "b") + piece.symbol().lower()
+            self.create_piece(row, col, code, piece.color)
+
+    def exit_history_view(self):
+        # Go to the live board position
+        self.history_view_index = None
+        self.draw_board()
+        self.create_all_pieces()
+        self.refresh_history_widget()
+
+    def ask_promotion(self, is_white):
+        # Show a modal with piece images; returns the chosen chess piece type.
+        color = "w" if is_white else "b"
+        choices = [
+            (chess.QUEEN,  f"{color}q"),
+            (chess.ROOK,   f"{color}r"),
+            (chess.BISHOP, f"{color}b"),
+            (chess.KNIGHT, f"{color}n"),
+        ]
+
+        chosen = tk.IntVar(value=chess.QUEEN)
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Promote to")
+        dialog.resizable(False, False)
+        dialog.grab_set()  # modal
+
+        frame = ttk.Frame(dialog, padding=10)
+        frame.pack()
+
+        for piece_type, code in choices:
+            btn = tk.Button(
+                frame,
+                image=self.images[code],
+                relief="raised", bd=2,
+                command=lambda p=piece_type: (chosen.set(p), dialog.destroy()),
+            )
+            btn.pack(side="left", padx=4, pady=4)
+
+        self.root.wait_window(dialog)
+        return chosen.get()
+
+    def is_over(self):
+        # True if the game is over, i.e. threefold repetition
+        return self.board.is_game_over() or self.board.is_repetition(3)
+
     def check_game_over(self):
         if self.board.is_checkmate():
-            winner = "Black" if self.board.turn else "White"
-            msg.showinfo("Game Over", f"Checkmate! {winner} wins.")
+            winner = "Black" if self.board.turn == chess.WHITE else "White"
+            messagebox.showinfo("Game Over", f"Checkmate! {winner} wins.")
         elif self.board.is_stalemate():
-            msg.showinfo("Game Over", "Stalemate!")
+            messagebox.showinfo("Game Over", "Stalemate!")
         elif self.board.is_insufficient_material():
-            msg.showinfo("Game Over", "Draw (insufficient material)")
+            messagebox.showinfo("Game Over", "Draw (insufficient material)")
+        elif self.board.is_repetition(3):
+            messagebox.showinfo("Game Over", "Draw by threefold repetition!")
+        self.engine_thinking = True  # block further moves
