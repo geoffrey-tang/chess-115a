@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
@@ -9,8 +11,105 @@ struct SearchResult {
     int score_cp; // score in centipawns, perspective = side to move (negamax)
 };
 
+struct TTEntry {
+    uint16_t key16 = 0;    // 16-bit verification
+    int16_t  score = 0;    
+    int8_t   depth = -1;   // searched depth
+    uint8_t  flag = TT_EMPTY;
+    Move move = 0;
+    uint8_t  age = 0;
+};
+
+struct TranspositionTable {
+    std::vector<TTEntry> table;
+    size_t mask = 0; 
+    uint8_t age = 0;
+
+    static uint16_t key16(uint64_t key) { return uint16_t(key >> 48); } // Grab the first 16 bits from a hash to use as verification
+
+    // Resize table to a specified MB and round down to the closest power of 2
+    void resize_mb(size_t megabytes) {
+        const size_t bytes = megabytes * 1024ull * 1024ull;
+        size_t entries = bytes / sizeof(TTEntry);
+        if (entries < 2) entries = 2;
+
+        // largest power-of-two <= entries
+        size_t n = 1;
+        while ((n << 1) <= entries) n <<= 1;
+
+        table.clear();
+        table.resize(n);
+        mask = n - 1;
+        age = 0;
+    }
+
+    void new_search() { ++age; } // Call at the start of each new root search
+
+    void clear() { // Fill table with empty entries
+        std::fill(table.begin(), table.end(), TTEntry{});
+        age = 0;
+    }
+
+    bool probe(uint64_t key, int depth, int& alpha, int& beta, int& out_score, Move& out_move) {
+        if (table.empty()) return false;
+        TTEntry& entry = table[key & mask];
+        if (entry.flag == TT_EMPTY) return false;
+        if (entry.key16 != TranspositionTable::key16(key)) return false;
+
+        out_move = entry.move;
+        
+        if(entry.depth >= depth){
+            int s = entry.score;
+            if (entry.flag == TT_EXACT){ 
+                out_score = s; 
+                return true; 
+            }
+            if (entry.flag == TT_LOWERBOUND) {
+                if(s >= beta){
+                    out_score = s; 
+                    return true; // beta cutoff
+                }
+                else if(s > alpha) alpha = std::max(alpha, s);
+            }
+
+            if (entry.flag == TT_UPPERBOUND) {
+                if (s <= alpha){
+                    out_score = s; 
+                    return true; // alpha cutoff
+                }
+                else if(s < beta) beta = std::min(beta, s);
+            }
+        }
+        return false;
+    }
+
+    // Store an entry
+    // Replacement policy: replace if empty, different key, older age, or shallower depth.
+    void store(uint64_t key, int depth, int score, TTFlag flag, Move bestMove) {
+        if(table.empty()) return;
+        TTEntry& e = table[key & mask];
+        const uint16_t k16 = key16(key);
+
+        const bool same = (e.flag != TT_EMPTY && e.key16 == k16);
+        const bool replace =
+            (e.flag == TT_EMPTY) ||
+            (!same) ||
+            (e.age != age) ||
+            (depth >= e.depth);
+
+        if (!replace) return;
+
+        e.key16  = k16;
+        e.depth  = (int8_t)std::clamp(depth, -128, 127);
+        e.score  = (int16_t)std::clamp(score, -32000, 32000);
+        e.flag   = (uint8_t)flag;
+        e.move   = bestMove;
+        e.age    = age;
+    }
+};
+
 // Initializes a stack of BoardStates to use for search
-void init_state_stack(Board& board, StateStack& ss);
+BoardState* init_state_stack(Board& board, StateStack& ss);
 
 // Perft debugging functions, prints number of leaf nodes at a certain depth
 uint64_t perft(Board& b, StateStack& ss, int depth);
@@ -18,16 +117,16 @@ uint64_t perft(Board& b, StateStack& ss, int depth);
 uint64_t perft_divide(Board& b, int depth);
 
 // Main iterative deepening function
-SearchResult iter_deepening(Board b, int max_depth);
+SearchResult iter_deepening(Board& b, TranspositionTable& tt, int max_depth);
 
 // Main search function, returns the best move
-SearchResult search_root(Board& b, int depth, Move prev_best = 0);
+SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, int depth, Move prev_best = 0);
 
 // Negamax search through the entire search tree up to depth; implement alpha-beta pruning
-int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, int depth);
+int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, int depth);
 
 // Quiescence search to continue searching through captures, alleviating horizon effect
 int quiesce(int alpha, int beta, Board& b, StateStack& ss);
 
 // Puts a move to the front of a vector of Moves, enabling better move ordering
-void put_move_first(std::vector<Move>& moves, Move m);
+void move_to_index(std::vector<Move>& moves, Move m, size_t idx);

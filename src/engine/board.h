@@ -19,6 +19,7 @@ struct BoardState {
     int fullmove = 1;
     uint8_t captured_piece = NONE;   // Pieces or NONE
     uint8_t captured_square = 64;  // where the captured piece was removed/restored
+    uint64_t zobrist = 0;
     BoardState* previous = nullptr;
 };
 
@@ -37,8 +38,24 @@ struct StateStack {
     int ply = 0;
 };
 
+struct StGuard {
+    Board& b;
+    BoardState* old;
+
+    StGuard(Board& b_, BoardState* new_st)
+        : b(b_), old(b_.st)
+    {
+        b.st = new_st;   // set temporary state
+    }
+
+    ~StGuard()
+    {
+        b.st = old;      // restore when guard dies
+    }
+};
+
 // Initializing constants & lookup tables (not done)
-void init();
+//void init();
 
 // Print a single bitboard in an 8x8 grid
 void print_bitboard(Bitboard bitboard);

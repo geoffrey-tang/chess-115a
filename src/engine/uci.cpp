@@ -4,11 +4,13 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
 #include "search.h"
+#include "zobrist.h"
 
 static const char* ENGINE_NAME = "chess-115a";
 static const char* ENGINE_AUTHOR = "Team";
@@ -75,6 +77,7 @@ static void set_position(const std::vector<std::string>& tok, Board& board, Stat
     size_t i = 1;
     if (tok[i] == "startpos") {
         board = get_board(STARTPOS_FEN);
+        init_state_stack(board, ss);
         i++;
     } else if (tok[i] == "fen") {
         if (tok.size() < i + 1 + 6) return;
@@ -84,6 +87,7 @@ static void set_position(const std::vector<std::string>& tok, Board& board, Stat
             fen += tok[i + 1 + k];
         }
         board = get_board(fen);
+        init_state_stack(board, ss);
         i += 1 + 6;
     } else {
         return;
@@ -106,7 +110,10 @@ int run_uci_loop() {
 
     StateStack ss;
     Board board = get_board(STARTPOS_FEN);
-    init_state_stack(board, ss);
+    BoardState* new_st = init_state_stack(board, ss);
+    StGuard guard(board, new_st);
+    TranspositionTable tt;
+    tt.resize_mb(256);
 
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -125,14 +132,15 @@ int run_uci_loop() {
         }
         else if (cmd == "ucinewgame") {
             board = get_board(STARTPOS_FEN);
+            init_state_stack(board, ss);
         }
         else if (cmd == "position") {
-            init_state_stack(board, ss);
             set_position(tok, board, ss);
+            init_state_stack(board, ss);
         }
         else if (cmd == "go") {
             int depth = parse_go_depth(tok);
-            SearchResult r = iter_deepening(board, depth);
+            SearchResult r = iter_deepening(board, tt, depth);
 
             // r.score_cp is from side to move perspective (negamax)
             // UCI usually expects score from side to move so its fine
@@ -146,6 +154,10 @@ int run_uci_loop() {
         }
         else if (cmd == "d"){
             print_board(board);
+        }
+        else if (cmd == "perft"){
+            int depth = parse_go_depth(tok);
+            perft_divide(board, depth);
         }
         else if (cmd == "quit") {
             break;

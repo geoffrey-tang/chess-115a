@@ -4,6 +4,7 @@
 #include "board.h"
 #include "constants.h"
 #include "search.h"
+#include "zobrist.h"
 
 // Generates king attack bitboard, assuming no friendlies
 Bitboard king_move(uint8_t square){ 
@@ -230,6 +231,8 @@ void do_move(Board& board, StateStack& ss, Move move){
     uint8_t from = get_from_sq(move);
     uint8_t to = get_to_sq(move);
     uint8_t moved_piece = piece_on_square(board, color, from);
+    uint8_t old_castle = (board.st)->castle;
+    uint8_t old_ep = (board.st)->en_passant;
     assert(moved_piece != NONE);
 
     // define a new board state & push onto stack
@@ -241,6 +244,7 @@ void do_move(Board& board, StateStack& ss, Move move){
     new_st->fullmove   = board.st->fullmove;
     new_st->captured_piece  = NONE;
     new_st->captured_square = to;
+    new_st->zobrist = board.st->zobrist;
 
     board.st = new_st;
 
@@ -258,51 +262,70 @@ void do_move(Board& board, StateStack& ss, Move move){
         Bitboard cap_bb = 1ULL << cap_sq;
         board.bb_pieces[!color][PAWN] ^= cap_bb;
         board.bb_colors[!color] ^= cap_bb;
+        (board.st)->zobrist ^= Zobrist::piece_sq[!color][PAWN][cap_sq];
     }
     else if(capture){
         uint8_t cap_piece = piece_on_square(board, !color, to);
         board.st->captured_piece = cap_piece;
         board.bb_pieces[!color][cap_piece] ^= to_bb;
         board.bb_colors[!color] ^= to_bb;
+        (board.st)->zobrist ^= Zobrist::piece_sq[!color][cap_piece][to];
     }
     board.bb_pieces[color][moved_piece] ^= (from_bb | to_bb);
     board.bb_colors[color] ^= (from_bb | to_bb);
+    (board.st)->zobrist ^= Zobrist::piece_sq[color][moved_piece][from];
+    (board.st)->zobrist ^= Zobrist::piece_sq[color][moved_piece][to];
 
     // handle promotions
     if(parse_promotion_flag(move) != NONE){
         uint8_t promo_piece = parse_promotion_flag(move);
         board.bb_pieces[color][PAWN] ^= to_bb;
         board.bb_pieces[color][promo_piece] ^= to_bb;
+        (board.st)->zobrist ^= Zobrist::piece_sq[color][PAWN][to];
+        (board.st)->zobrist ^= Zobrist::piece_sq[color][promo_piece][to];
     }
 
     // move rooks during castling
     if(get_move_flags(move) == CASTLE >> 14){
+        uint8_t rt = 64, rf = 64;
         if(color == WHITE){
             if(to == G1){
                 Bitboard rook_from = 1ULL << H1;
                 Bitboard rook_to = 1ULL << F1;
+                rf = H1, rt = F1;
                 board.bb_pieces[WHITE][ROOK] ^= (rook_from | rook_to);
                 board.bb_colors[WHITE] ^= (rook_from | rook_to);
             }
             else if (to == C1){
                 Bitboard rook_from = 1ULL << A1;
                 Bitboard rook_to = 1ULL << D1;
+                rf = A1, rt = D1;
                 board.bb_pieces[WHITE][ROOK] ^= (rook_from | rook_to);
                 board.bb_colors[WHITE] ^= (rook_from | rook_to);
+            }
+            if(rf != 64){
+                (board.st)->zobrist ^= Zobrist::piece_sq[WHITE][ROOK][rf];
+                (board.st)->zobrist ^= Zobrist::piece_sq[WHITE][ROOK][rt];
             }
         }
         else{
             if(to == G8){
                 Bitboard rook_from = 1ULL << H8;
                 Bitboard rook_to = 1ULL << F8;
+                rf = H8, rt = F8;
                 board.bb_pieces[BLACK][ROOK] ^= (rook_from | rook_to);
                 board.bb_colors[BLACK] ^= (rook_from | rook_to);
             }
             else if (to == C8){
                 Bitboard rook_from = 1ULL << A8;
                 Bitboard rook_to = 1ULL << D8;
+                rf = A8, rt = D8;
                 board.bb_pieces[BLACK][ROOK] ^= (rook_from | rook_to);
                 board.bb_colors[BLACK] ^= (rook_from | rook_to);
+            }
+            if(rf != 64){
+                (board.st)->zobrist ^= Zobrist::piece_sq[BLACK][ROOK][rf];
+                (board.st)->zobrist ^= Zobrist::piece_sq[BLACK][ROOK][rt];
             }
         }
     }
@@ -316,11 +339,16 @@ void do_move(Board& board, StateStack& ss, Move move){
             board.st->en_passant = uint8_t(from - 8);
         }
     }
+    if (old_ep != 64) board.st->zobrist ^= Zobrist::ep_file[get_file(old_ep)];
+    if (board.st->en_passant != 64) board.st->zobrist ^= Zobrist::ep_file[get_file(board.st->en_passant)];
 
     update_castling(board, color, moved_piece, move, *board.st);
+    (board.st)->zobrist ^= Zobrist::castle[old_castle & 0xF];
+    (board.st)->zobrist ^= Zobrist::castle[board.st->castle & 0xF];
     if(color == BLACK) board.st->fullmove++;
 
     board.to_move = !color;
+    (board.st)->zobrist ^= Zobrist::side_to_move;
 }
 
 // Reverts a move to the previous position on the stack. 
