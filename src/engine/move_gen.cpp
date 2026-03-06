@@ -225,6 +225,24 @@ std::vector<Move> generate_captures(Board& board, StateStack& ss){
     return captures;
 }
 
+std::array<std::vector<Move>, 2> generate_split(Board& board, StateStack& ss){
+    std::vector<Move> pseudo = generate_pseudo(board, board.to_move);
+    std::vector<Move> capture;
+    std::vector<Move> quiet;
+    capture.reserve(pseudo.size());
+    quiet.reserve(pseudo.size());
+    for(Move m : pseudo){
+        if(legal(board, ss, m) && is_capture(board, m)){
+            capture.push_back(m);
+        }
+        else if(legal(board, ss, m)){
+            quiet.push_back(m);
+        }
+    }
+    std::array<std::vector<Move>, 2> out = {capture, quiet};
+    return out;
+}
+
 // Plays a move, and pushes it onto the search stack
 void do_move(Board& board, StateStack& ss, Move move){
     uint8_t color = board.to_move;

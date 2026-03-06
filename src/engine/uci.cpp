@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <chrono>
 
 #include "board.h"
 #include "move_gen.h"
@@ -140,11 +141,20 @@ int run_uci_loop() {
         }
         else if (cmd == "go") {
             int depth = parse_go_depth(tok);
-            SearchResult r = iter_deepening(board, tt, depth);
+            SearchStats stats{};
+            auto start = std::chrono::steady_clock::now();
+            SearchResult r = iter_deepening(board, tt, stats, depth);
+            auto end = std::chrono::steady_clock::now();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
             // r.score_cp is from side to move perspective (negamax)
             // UCI usually expects score from side to move so its fine
-            std::cout << "info depth " << depth << " score cp " << r.score_cp << "\n";
+            std::cout 
+                << "info depth " << depth  
+                << " seldepth " << stats.seldepth 
+                << " nodes " << stats.nodes
+                << " time " << ms
+                << " score cp " << r.score_cp << "\n";
 
             if (r.best_move == 0) {
                 std::cout << "bestmove 0000\n";

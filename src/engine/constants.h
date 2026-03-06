@@ -4,6 +4,8 @@
 
 #define LAST_BIT 63
 
+constexpr int MAX_HISTORY = 16384;
+
 using Bitboard = uint64_t;
 using Move = uint16_t;
 

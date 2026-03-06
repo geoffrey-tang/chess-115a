@@ -6,9 +6,54 @@
 #include "move_gen.h"
 #include "constants.h"
 
+static constexpr int MVV_LVA_PIECE_VALUE[6] = {
+    100, // pawn
+    300, // knight
+    300, // bishop
+    500, // rook
+    900, // queen
+    0    // king
+};
+
 struct SearchResult {
     Move best_move;
     int score_cp; // score in centipawns, perspective = side to move (negamax)
+};
+
+struct SearchStats {
+    int nodes = 0;
+    int seldepth = 0;
+};
+
+struct SearchHeuristic {
+    Move killers[MAX_PLY][2]{};
+    int history[2][64][64]{}; // [color][from][to]
+
+    void clear(){
+        for (int ply = 0; ply < MAX_PLY; ++ply) {
+            killers[ply][0] = 0;
+            killers[ply][1] = 0;
+        }
+
+        for (int c = 0; c < 2; ++c)
+            for (int from = 0; from < 64; ++from)
+                for (int to = 0; to < 64; ++to)
+                    history[c][from][to] = 0;
+    }
+
+    void update_killer(Move m, int ply){
+        if (ply < 0 || ply >= MAX_PLY || m == 0) return;
+        if (killers[ply][0] == m) return; // already best killer
+        killers[ply][1] = killers[ply][0];
+        killers[ply][0] = m;
+    }
+
+    void update_history(Move m, int color, int bonus){
+        int from = get_from_sq(m);
+        int to = get_to_sq(m);
+        int clamped_bonus = std::clamp(bonus, -MAX_HISTORY, MAX_HISTORY);
+        history[color][from][to] += clamped_bonus - history[color][from][to] * abs(clamped_bonus) / MAX_HISTORY;
+    }
 };
 
 struct TTEntry {
@@ -117,16 +162,20 @@ uint64_t perft(Board& b, StateStack& ss, int depth);
 uint64_t perft_divide(Board& b, int depth);
 
 // Main iterative deepening function
-SearchResult iter_deepening(Board& b, TranspositionTable& tt, int max_depth);
+SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, int max_depth);
 
 // Main search function, returns the best move
-SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, int depth, Move prev_best = 0);
+SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth, Move prev_best = 0);
 
 // Negamax search through the entire search tree up to depth; implement alpha-beta pruning
-int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, int depth);
+int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth);
 
 // Quiescence search to continue searching through captures, alleviating horizon effect
-int quiesce(int alpha, int beta, Board& b, StateStack& ss);
+int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats);
 
 // Puts a move to the front of a vector of Moves, enabling better move ordering
 void move_to_index(std::vector<Move>& moves, Move m, size_t idx);
+
+int score_move(Board& b, StateStack& ss, SearchHeuristic& sh, Move m);
+
+int mvv_lva_score(Board& b, Move m);

@@ -24,6 +24,8 @@ std::vector<Move> generate_moves(Board& board, StateStack& ss);
 
 std::vector<Move> generate_captures(Board& board, StateStack& ss);
 
+std::array<std::vector<Move>, 2> generate_split(Board& board, StateStack& ss);
+
 // Make/unmake moves
 void do_move(Board& board, StateStack& ss, Move move);
 

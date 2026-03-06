@@ -366,6 +366,15 @@ uint8_t piece_on_square(Board& board, uint8_t color, uint8_t sq) {
     return NONE;
 }
 
+// Get the piece that is being captured by a move
+uint8_t get_captured_piece(Board& board, Move m) {
+    if(get_move_flags(m) == (EN_PASSANT >> 14)) return PAWN;
+
+    int to = get_to_sq(m);
+    int enemy = !board.to_move;
+    return piece_on_square(board, enemy, to);
+}
+
 // Debugging function that prints all the bitboards of a Board
 void debug_bb(Board& board){
     std::string pieces[12] = {"w_pawn", "w_bishop", "w_knight", "w_rook", "w_queen", "w_king", 

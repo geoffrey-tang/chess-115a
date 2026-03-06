@@ -128,5 +128,7 @@ bool empty_square(uint8_t square, Board& board);
 // Get the piece that is on a square
 uint8_t piece_on_square(Board& board, uint8_t color, uint8_t sq);
 
+uint8_t get_captured_piece(Board& board, Move m);
+
 // Prints all bitboards of a Board
 void debug_bb(Board& board);
