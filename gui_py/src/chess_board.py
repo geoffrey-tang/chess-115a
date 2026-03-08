@@ -1,4 +1,5 @@
 import os
+import time
 import tkinter as tk
 import ttkbootstrap as ttk
 import threading
@@ -38,26 +39,35 @@ class ChessGUI:
         self.history_view_index = None
         self.history_widget = None
         self.engine_thinking = False
-        
+      
+        self.analysis_position = None
+        self.board = chess.Board()
         self.analysis_mode = False
         self.analysis_engine = None
         self.analysis_running = False
         self.analysis_eval_text = None
-        
+        self.arrow_var = tk.BooleanVar(value = True)
+
+        self.suggestion_arrow = None
+        self.suggested_move = None
+        self.show_arrows = True
+
+        self.lines_var = tk.IntVar(value = 1)
+
         self.setup_ui()
         self.draw_board()
         self.menu()
 
     # initialization of tkinter frame and canvas objects
     def setup_ui(self):
-        main_frame = ttk.Frame(self.root, padding=10)
+        main_frame = ttk.Frame(self.root, padding = 10)
         main_frame.pack()
 
         # Canvas for chess board
         self.canvas = tk.Canvas(
             main_frame,
-            width=self.square_size * 8 + self.menu_size,
-            height=self.square_size * 8,
+            width = self.square_size * 8 + self.menu_size,
+            height = self.square_size * 8,
         )
         self.canvas.pack()
 
@@ -67,19 +77,14 @@ class ChessGUI:
 
     # draw/ redraw the board using create_rectangle and arithmetic
     def draw_board(self):
+
         self.canvas.delete("square")  # only delete squares, not pieces
 
         # Squares involved in the last move
         last_move_squares = set()
         if self.last_move:
-            last_move_squares.add((
-                chess.square_rank(self.last_move.from_square),
-                chess.square_file(self.last_move.from_square),
-            ))
-            last_move_squares.add((
-                chess.square_rank(self.last_move.to_square),
-                chess.square_file(self.last_move.to_square),
-            ))
+            last_move_squares.add((chess.square_rank(self.last_move.from_square), chess.square_file(self.last_move.from_square),))
+            last_move_squares.add((chess.square_rank(self.last_move.to_square), chess.square_file(self.last_move.to_square),))
 
         # Draw squares (screen coordinates)
         for screen_row in range(8):
@@ -130,6 +135,14 @@ class ChessGUI:
 
         # Keep squares below pieces
         self.canvas.tag_lower("square")
+
+        # Ensure proper layering
+        self.canvas.tag_lower("square")
+        self.canvas.tag_raise("piece")
+        self.canvas.tag_raise("move_hint")
+        self.canvas.tag_raise("suggestion_arrow")
+        self.canvas.tag_raise("menu_item")
+        self.canvas.tag_raise("analysis")
     
     def load_images(self):
         self.images = {}
@@ -144,16 +157,24 @@ class ChessGUI:
 
                 self.images[key] = img
 
-    def create_piece(self, row, col, piece_code, iswhite):
+    def create_piece(self, row, col, piece_code, color):
+    
         x, y = self.board_to_screen(row, col)
 
-        piece = self.canvas.create_image(
-                x, y,
-                image=self.images[piece_code],
-                tags=("piece", "draggable", piece_code)
+        image = self.images[piece_code]   # or whatever your image dictionary is called
+
+        item = self.canvas.create_image(
+            x,
+            y,
+            image=image,
+            tags=("piece",)
         )
 
-        self.pieces[piece] = (row, col, piece_code, iswhite)
+        self.pieces[item] = (row, col, piece_code, color)
+
+        self.canvas.tag_bind(item, "<ButtonPress-1>", self.drag_start)
+        self.canvas.tag_bind(item, "<B1-Motion>", self.drag_motion)
+        self.canvas.tag_bind(item, "<ButtonRelease-1>", self.drag_release)
 
     def create_all_pieces(self):
         # remove all pieces from canvas
@@ -161,8 +182,12 @@ class ChessGUI:
         self.pieces = {}
 
         for square, piece in self.board.piece_map().items():
-            row, col = chess.square_rank(square), chess.square_file(square)
+            
+            col = chess.square_file(square)
+            row = chess.square_rank(square)
+
             piece_code = ("w" if piece.color == chess.WHITE else "b") + piece.symbol().lower()
+
             self.create_piece(row, col, piece_code, piece.color)
 
     def drag_start(self, event):
@@ -207,6 +232,7 @@ class ChessGUI:
 
         self.selected_square = (row, col)
         self.draw_board()
+
         self.show_move_hints(square)
 
         self.drag_data["item"] = item
@@ -226,34 +252,28 @@ class ChessGUI:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
-    # implements post move logic:
-    # peice capturing
-    # saving move to move history list
-    # starting engine searching
     def drag_release(self, event):
         item = self.drag_data["item"]
-        
         if item is None:
             return
 
         self.clear_move_hints()
 
-        if self.engine_thinking:
+        if self.engine_thinking and not self.analysis_mode:
             return
 
-        cx, cy = self.canvas.coords(item)
+        cx, cy = event.x, event.y
 
+        # --- Board editor mode ---
         if self.editing:
             board_width = self.square_size * 8
             board_height = self.square_size * 8
 
-            # If dropped on the board, snap to grid
             if 0 <= cx < board_width and 0 <= cy < board_height:
                 row, col = self.screen_to_board(cx, cy)
                 row = max(0, min(7, row))
                 col = max(0, min(7, col))
 
-                # Remove any existing piece at that square
                 occupant = self.get_piece_at(row, col)
                 if occupant is not None and occupant != item:
                     self.canvas.delete(occupant)
@@ -263,32 +283,46 @@ class ChessGUI:
                 self.canvas.coords(item, target_x, target_y)
                 self.pieces[item] = (row, col, self.pieces[item][2], self.pieces[item][3])
             else:
-                # Dragged off the board — remove the piece
                 self.canvas.delete(item)
                 del self.pieces[item]
 
             self.drag_data["item"] = None
             return
 
-        # convert screen position to board coordinates
+        # --- Normal gameplay ---
         row, col = self.screen_to_board(cx, cy)
         row = max(0, min(7, row))
         col = max(0, min(7, col))
 
         old_row, old_col = self.pieces[item][0], self.pieces[item][1]
-
+        
         from_sq = self.board_to_chess_square(old_row, old_col)
         to_sq = self.board_to_chess_square(row, col)
 
-        move = chess.Move(from_sq, to_sq)
+        piece = self.board.piece_at(from_sq)
+
+        # Fix castling when king is dropped on rook
+        if piece and piece.piece_type == chess.KING:
+            target_piece = self.board.piece_at(to_sq)
+
+            if target_piece and target_piece.piece_type == chess.ROOK and target_piece.color == piece.color:
+
+                if to_sq > from_sq:  # kingside
+                    to_sq = chess.square(chess.FILE_G, chess.square_rank(from_sq))
+                else:  # queenside
+                    to_sq = chess.square(chess.FILE_C, chess.square_rank(from_sq))
 
         piece = self.board.piece_at(from_sq)
 
+        # Handle pawn promotion
+        move = chess.Move(from_sq, to_sq)
         if piece and piece.piece_type == chess.PAWN and row in (0, 7):
             promo = self.ask_promotion(piece.color == chess.WHITE)
             move = chess.Move(from_sq, to_sq, promotion=promo)
 
+        # Check legality
         if move not in self.board.legal_moves:
+            # Illegal move → reset piece to old square
             x, y = self.board_to_screen(old_row, old_col)
             self.canvas.coords(item, x, y)
             self.drag_data["item"] = None
@@ -297,44 +331,48 @@ class ChessGUI:
             return
 
         self.record_move(move)
+        self.board.push(move)
+
         self.last_move = move
         self.selected_square = None
-        self.board.push(move)
+
+        self.canvas.delete(item)
+        self.canvas.delete("piece")
+        self.pieces.clear()
         self.draw_board()
         self.create_all_pieces()
+
         self.restart_analysis()
 
         self.drag_data["item"] = None
-
         self.update_status()
 
+        # Check for game over
         if self.is_over():
             self.check_game_over()
             return
 
-        # engine responds after player's move in a background thread
+        # Engine move if it's AI's turn
         player_color = chess.WHITE if self.player_is_white else chess.BLACK
         if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
-    def clear_menu(self):
-        self.canvas.delete("menu_item")
-        self.canvas.delete("status")
-
-    # ui/menu drawing
     def menu(self):
+
         self.editing = False
         self.canvas.delete("palette")
         self.canvas.config(height=self.square_size * 8)
         self.clear_menu()
+
         y_margins = 50
 
         x1 = self.square_size * 8
         y1 = 0
         x2 = x1 + self.menu_size
         y2 = self.square_size * 8
-        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#f8f8f8", outline="", tags="menu_item")
+
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill = "#f8f8f8", outline = "", tags = "menu_item")
 
         center = x1 + self.menu_size // 2
         row = 1
@@ -342,133 +380,102 @@ class ChessGUI:
         # Game Mode dropdown
         if not hasattr(self, "game_mode"):
             self.game_mode = tk.StringVar(value="Player vs Engine")
+
         mode_options = ["Player vs Engine", "Bot vs Bot"]
-        mode_menu = tk.OptionMenu(self.root, self.game_mode, *mode_options,
-                                  command=self.on_mode_change)
-        self.canvas.create_window(center, row * y_margins, window=mode_menu, tags="menu_item")
+
+        mode_menu = tk.OptionMenu(self.root, self.game_mode, *mode_options, command = self.on_mode_change)
+
+        self.canvas.create_window(center, row * y_margins, window = mode_menu, tags = "menu_item")
         row += 1
 
         is_bot_vs_bot = self.game_mode.get() == "Bot vs Bot"
 
+        # BOT VS BOT CONTROLS
+
         if is_bot_vs_bot and self.bot_vs_bot_active:
-            # During active bot vs bot game: show pause/stop controls
+
             pause_text = "Resume" if self.bot_vs_bot_paused else "Pause"
-            pause_button = ttk.Button(self.root, text=pause_text, command=self.toggle_pause)
-            self.canvas.create_window(center, row * y_margins, window=pause_button, tags="menu_item")
+
+            pause_button = ttk.Button(self.root, text = pause_text, command = self.toggle_pause)
+
+            self.canvas.create_window(center, row * y_margins, window = pause_button, tags = "menu_item")
             row += 1
 
-            stop_button = ttk.Button(self.root, text="Stop", command=self.stop_bot_game)
+            stop_button = ttk.Button(self.root, text = "Stop", command = self.stop_bot_game)
+
             self.canvas.create_window(center, row * y_margins, window=stop_button, tags="menu_item")
             row += 1
 
-        elif is_bot_vs_bot:
-            # Bot vs Bot setup controls
-            if not hasattr(self, "think_time"):
-                self.think_time = tk.IntVar(value=1000)
-            if not hasattr(self, "move_delay"):
-                self.move_delay = tk.IntVar(value=500)
-            if not hasattr(self, "white_engine_path"):
-                self.white_engine_path = engine_path
-            if not hasattr(self, "black_engine_path"):
-                self.black_engine_path = engine_path
+        # PLAYER VS ENGINE
 
-            # Think time slider
-            think_frame = ttk.Frame(self.root)
-            ttk.Label(think_frame, text="Think time:").pack(side="left", padx=(0, 5))
-            think_val = ttk.Label(think_frame, text=f"{self.think_time.get()}ms", width=7)
-            def update_think(val, lbl=think_val):
-                self.think_time.set(int(float(val)))
-                lbl.config(text=f"{self.think_time.get()}ms")
-            ttk.Scale(think_frame, from_=100, to=5000, variable=self.think_time,
-                      length=150, command=update_think).pack(side="left")
-            think_val.pack(side="left", padx=(5, 0))
-            self.canvas.create_window(center, row * y_margins, window=think_frame, tags="menu_item")
-            row += 1
+        elif not is_bot_vs_bot:
 
-            # Move delay slider
-            delay_frame = ttk.Frame(self.root)
-            ttk.Label(delay_frame, text="Move delay:").pack(side="left", padx=(0, 5))
-            delay_val = ttk.Label(delay_frame, text=f"{self.move_delay.get()}ms", width=7)
-            def update_delay(val, lbl=delay_val):
-                self.move_delay.set(int(float(val)))
-                lbl.config(text=f"{self.move_delay.get()}ms")
-            ttk.Scale(delay_frame, from_=0, to=3000, variable=self.move_delay,
-                      length=150, command=update_delay).pack(side="left")
-            delay_val.pack(side="left", padx=(5, 0))
-            self.canvas.create_window(center, row * y_margins, window=delay_frame, tags="menu_item")
-            row += 1
-
-            # White engine selector
-            w_name = os.path.basename(self.white_engine_path)
-            w_frame = ttk.Frame(self.root)
-            ttk.Label(w_frame, text=f"W: {w_name}").pack(side="left", padx=(0, 5))
-            ttk.Button(w_frame, text="Browse",
-                       command=lambda: self.browse_engine("white")).pack(side="left")
-            self.canvas.create_window(center, row * y_margins, window=w_frame, tags="menu_item")
-            row += 1
-
-            # Black engine selector
-            b_name = os.path.basename(self.black_engine_path)
-            b_frame = ttk.Frame(self.root)
-            ttk.Label(b_frame, text=f"B: {b_name}").pack(side="left", padx=(0, 5))
-            ttk.Button(b_frame, text="Browse",
-                       command=lambda: self.browse_engine("black")).pack(side="left")
-            self.canvas.create_window(center, row * y_margins, window=b_frame, tags="menu_item")
-            row += 1
-
-            # Start match button
-            play_button = ttk.Button(self.root, text="Start match", command=self.game_started)
-            self.canvas.create_window(center, row * y_margins, window=play_button, tags="menu_item")
-            row += 1
-
-        else:
-            # Player vs Engine
             if not hasattr(self, "play_color"):
                 self.play_color = tk.StringVar(value="Play as White")
+
             color_options = ["Play as White", "Play as Black"]
+
             color_menu = tk.OptionMenu(self.root, self.play_color, *color_options)
-            self.canvas.create_window(center, row * y_margins, window=color_menu, tags="menu_item")
+
+            self.canvas.create_window(center, row * y_margins, window = color_menu, tags = "menu_item")
             row += 1
 
-            # Check if a game is currently active
-            game_active = (hasattr(self, "engine") and hasattr(self, "board") and 
+            game_active = (hasattr(self, "engine") and hasattr(self, "board") and
                           not self.is_over() if hasattr(self, "board") else False)
 
             btn_frame = ttk.Frame(self.root)
+
             if not game_active:
-                # Show "Play a game" when no game is active or game is over
-                ttk.Button(btn_frame, text="Play a game", command=self.game_started).pack(side="left", padx=(0, 4))
+                ttk.Button(btn_frame, text = "Play a game", command = self.game_started).pack(side = "left", padx = (0, 4))
+
             if game_active:
-                # Show "Resign" only when game is active
-                ttk.Button(btn_frame, text="Resign", command=self.forfeit_game).pack(side="left")
-            self.canvas.create_window(center, row * y_margins, window=btn_frame, tags="menu_item")
+                ttk.Button(btn_frame, text = "Resign", command = self.forfeit_game).pack(side = "left")
+
+            self.canvas.create_window(center, row * y_margins, window = btn_frame, tags = "menu_item")
             row += 1
 
-        # Common buttons
-        flip_button = ttk.Button(self.root, text="Do a flip!", command=self.flip_board)
+        # COMMON BUTTONS
+
+        flip_button = ttk.Button(self.root, text = "Do a flip!", command = self.flip_board)
+
         self.canvas.create_window(center, row * y_margins, window=flip_button, tags="menu_item")
         row += 1
 
-        # Board Editor button (RESTORED)
+        # Board Editor
         if not self.bot_vs_bot_active:
-            editor_button = ttk.Button(self.root, text="Board Editor", command=self.board_editor)
+            editor_button = ttk.Button(self.root, text = "Board Editor", command = self.board_editor)
+
             self.canvas.create_window(center, row * y_margins, window=editor_button, tags="menu_item")
             row += 1
 
         # Analysis Board button
-        analysis_button = ttk.Button(self.root, text="Analysis Board", command=self.start_analysis_mode)
+        analysis_button = ttk.Button(self.root, text = "Analysis Board", command = self.start_analysis_mode)
+
         self.canvas.create_window(center, row * y_margins, window=analysis_button, tags="menu_item")
         row += 1
 
-        # Analysis display (if active)
+        # ANALYSIS DISPLAY
+
         if self.analysis_mode and hasattr(self, "board") and not self.editing:
+
             self.create_analysis_display(center, row)
-            row += 3  # Reserve space for analysis (takes ~3 rows)
+
+            # reserve vertical space
+            row += 4
+
+        # MOVE HISTORY PANEL
 
         if hasattr(self, "board") and not self.editing:
+
             self.draw_history_panel(row)
 
+        # STATUS TEXT
+
         self.update_status()
+
+    def clear_menu(self):
+        self.canvas.delete("menu_item")
+        self.canvas.delete("status")
 
     def update_status(self):
         self.canvas.delete("status")
@@ -1007,7 +1014,6 @@ class ChessGUI:
             self.canvas.delete(hint)
         self.move_hints.clear()
 
-
     def record_move(self, move):
         # Record the SAN for move. Must be called before board.push(move)
         self.move_san_history.append(self.board.san(move))
@@ -1199,63 +1205,112 @@ class ChessGUI:
         self.menu()  # Refresh menu to update button display
 
     def start_analysis_mode(self):
-        self.analysis_mode = True
-        self.analysis_running = True
 
-        # If no board exists yet → start from default
-        if not hasattr(self, "board"):
-            self.board = chess.Board()
-
-        # If editor is active → build board from editor pieces
-        if self.editing:
-            white_to_play = True
-            if hasattr(self, "selected_side"):
-                white_to_play = self.selected_side.get() == "White to play"
-            self.board = chess.Board(self.board_to_fen(white_to_play))
-
-        self.analysis_engine = UCIEngine.UCIEngine(engine_path)
-
-        # Refresh menu to show analysis display in proper position
-        self.menu()
-
-        threading.Thread(target=self.analysis_loop, daemon=True).start()
-
-    def create_analysis_display(self, center_x=None, row=None):
-        if self.analysis_eval_text:
-            self.canvas.delete(self.analysis_eval_text)
-
-        # If called from menu with positioning, use that; otherwise use default
-        if center_x is not None and row is not None:
-            x = center_x
-            y = row * 50  # y_margins = 50
+        if self.analysis_mode:
+            # Turn OFF
+            self.analysis_mode = False
+            self.analysis_running = False
+            self.canvas.delete("analysis")
+            self.canvas.delete("suggestion_arrow")
+            self.suggested_move = None
+            if self.analysis_engine:
+                self.analysis_engine.send("stop")   # optional but nice
         else:
-            x = self.square_size * 8 + self.menu_size // 2
-            y = 50  # Top of sidebar
+            # Turn ON
+            if not hasattr(self, "board"):
+                return
 
-        self.analysis_eval_text = self.canvas.create_text(
-            x, y, text="Evaluating...", 
-            font=("Arial", 11), fill="black",
-            width=self.menu_size - 40,  # Wrap text to fit sidebar
-            tags="menu_item"
-        )
+            self.analysis_mode = True
+            
+            if self.analysis_engine is None:
+                self.analysis_engine = UCIEngine.UCIEngine(engine_path)
+
+            self.menu()   # redraw menu → shows analysis widgets
+
+            if not self.analysis_running:
+                self.analysis_running = True
+                threading.Thread(target = self.analysis_loop, daemon = True).start()
+
+        self.menu()   # always refresh menu at the end
+
+
+    def create_analysis_display(self, center, row):
+        self.canvas.delete("analysis")
+
+        y = row * 50
+
+        initial_text = "Eval: --\nBest Move: --"
+        self.analysis_eval_text = self.canvas.create_text(center, y, text=initial_text, font=("Arial", 14), tags="analysis")
+
+        y += 70
+
+        arrow_toggle = ttk.Checkbutton(self.root, text="Show Arrows", variable=self.arrow_var, command=self.toggle_arrows)
+        self.canvas.create_window(center, y, window=arrow_toggle, tags="analysis")
 
     def analysis_loop(self):
+
+        last_fen = None
+
         while self.analysis_running:
             try:
                 fen = self.board.fen()
 
-                self.analysis_engine.send(f"position fen {fen}")
+                if fen != last_fen:
+                    last_fen = fen
 
-                info = self.analysis_engine.analyze(movetime_ms=300)
+                self.analysis_engine.send(f"position fen {fen}") # Send position to engine
+                
+                def send_update(info):
+                    self.root.after(0, self.update_analysis_display, info)
 
-                self.root.after(0, self.update_analysis_display, info)
+                self.analysis_engine.analyze(movetime_ms = 150, callback = send_update)
+
+                time.sleep(0.1)
 
             except Exception as e:
                 print("Analysis error:", e)
                 break
 
+    def draw_suggestion_arrow(self, move_uci):
+
+        if not self.show_arrows:
+            return
+
+        self.canvas.delete("suggestion_arrow")
+
+        move = chess.Move.from_uci(move_uci)
+        
+        r1, c1 = self.chess_square_to_board(move.from_square)
+        r2, c2 = self.chess_square_to_board(move.to_square)
+
+        x1, y1 = self.board_to_screen(r1, c1)
+        x2, y2 = self.board_to_screen(r2, c2)
+
+        self.suggestion_arrow = self.canvas.create_line(x1, y1, x2, y2, width = 8, fill = "#1f77ff", arrow = tk.LAST, arrowshape = (20, 25, 10), smooth = True, tags = "suggestion_arrow" ) # Draws the arrow
+
+        self.canvas.tag_raise("suggestion_arrow") #Make sure arrow is above squares but below pieces
+        self.canvas.tag_lower("suggestion_arrow", "piece")
+
+    def toggle_arrows(self):
+        self.show_arrows = self.arrow_var.get()
+
+        if not self.show_arrows:
+            self.canvas.delete("suggestion_arrow")
+        else:
+            if self.suggested_move:
+                try:
+                    self.draw_suggestion_arrow(str(self.suggested_move))
+                except Exception as e:
+                    print("Error drawing arrow:", e)
+                    self.clear_suggestion_arrow()
+
+    def clear_suggestion_arrow(self):
+        if self.suggestion_arrow:
+            self.canvas.delete(self.suggestion_arrow)
+            self.suggestion_arrow = None
+
     def update_analysis_display(self, info):
-        if not self.analysis_eval_text:
+        if self.analysis_eval_text is None:
             return
 
         score = info.get("score", "?")
@@ -1264,19 +1319,34 @@ class ChessGUI:
 
         text = f"Eval: {score}"
 
+        move_to_show = None
+
         if pv:
-            text += "\nBest line:\n" + " ".join(pv)
+            move_to_show = pv[0]
         elif best_move:
-            text += f"\nBest move: {best_move}"
+            move_to_show = best_move
+
+        if move_to_show:
+            text += f"\nBest move: {move_to_show}"
         else:
             text += "\nBest move: (searching...)"
 
-        self.canvas.itemconfig(self.analysis_eval_text, text=text)
+        self.canvas.itemconfig(self.analysis_eval_text, text = text)
+
+        if move_to_show == self.suggested_move:
+            return
+
+        self.suggested_move = move_to_show
+
+        if self.suggested_move and self.show_arrows:
+            try:
+                self.draw_suggestion_arrow(str(self.suggested_move))
+            except Exception as e:
+                print("Error drawing arrow:", e)
+                self.clear_suggestion_arrow()
+        else:
+            self.clear_suggestion_arrow()
 
     def restart_analysis(self):
         if not self.analysis_mode:
             return
-
-        self.analysis_running = False
-        self.analysis_running = True
-        threading.Thread(target=self.analysis_loop, daemon=True).start()
