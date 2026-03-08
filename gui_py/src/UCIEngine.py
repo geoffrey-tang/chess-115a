@@ -51,12 +51,9 @@ class UCIEngine:
         except Exception:
             self.engine.kill()
 
-    def analyze(self, movetime_ms = 300):
-        """
-        Ask engine for evaluation + principal variation.
-        Returns dict: { score: str, pv: [moves] }
-        """
-
+    def analyze(self, movetime_ms = 150, callback = None): #Ask engine for evaluation + principal variation. Returns dict: { score: str, pv: [moves] }
+        
+        self.send("stop")
         self.send("isready")
         self.wait_ready()
 
@@ -87,9 +84,20 @@ class UCIEngine:
 
                 if "pv" in parts: 
                     best_pv = parts[parts.index("pv") + 1:]
+
+                    info = {"score": score, "pv": best_pv, "best_move": best_pv[0]}
+
+                    if callback:
+                        callback(info)
             
             if line.startswith("bestmove"):
                 best_move = line.split()[1]
+                
+                info = {"score": score, "pv": [best_move], "best_move": best_move}
+
+                if callback:
+                    callback(info)
+
                 break
             
         return {"score": score, "pv": best_pv, "best_move": best_move}
