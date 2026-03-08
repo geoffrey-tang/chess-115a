@@ -52,7 +52,6 @@ class ChessGUI:
         self.suggested_move = None
         self.show_arrows = True
 
-        self.num_lines = 1
         self.lines_var = tk.IntVar(value = 1)
 
         self.setup_ui()
@@ -158,16 +157,24 @@ class ChessGUI:
 
                 self.images[key] = img
 
-    def create_piece(self, row, col, piece_code, iswhite):
+    def create_piece(self, row, col, piece_code, color):
+    
         x, y = self.board_to_screen(row, col)
 
-        piece = self.canvas.create_image(
-                x, y,
-                image=self.images[piece_code],
-                tags=("piece", "draggable", piece_code)
+        image = self.images[piece_code]   # or whatever your image dictionary is called
+
+        item = self.canvas.create_image(
+            x,
+            y,
+            image=image,
+            tags=("piece",)
         )
 
-        self.pieces[piece] = (row, col, piece_code, iswhite)
+        self.pieces[item] = (row, col, piece_code, color)
+
+        self.canvas.tag_bind(item, "<ButtonPress-1>", self.drag_start)
+        self.canvas.tag_bind(item, "<B1-Motion>", self.drag_motion)
+        self.canvas.tag_bind(item, "<ButtonRelease-1>", self.drag_release)
 
     def create_all_pieces(self):
         # remove all pieces from canvas
@@ -175,8 +182,12 @@ class ChessGUI:
         self.pieces = {}
 
         for square, piece in self.board.piece_map().items():
-            row, col = chess.square_rank(square), chess.square_file(square)
+            
+            col = chess.square_file(square)
+            row = chess.square_rank(square)
+
             piece_code = ("w" if piece.color == chess.WHITE else "b") + piece.symbol().lower()
+
             self.create_piece(row, col, piece_code, piece.color)
 
     def drag_start(self, event):
@@ -241,13 +252,8 @@ class ChessGUI:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
-    # implements post move logic:
-    # peice capturing
-    # saving move to move history list
-    # starting engine searching
     def drag_release(self, event):
         item = self.drag_data["item"]
-        
         if item is None:
             return
 
@@ -256,19 +262,18 @@ class ChessGUI:
         if self.engine_thinking and not self.analysis_mode:
             return
 
-        cx, cy = self.canvas.coords(item)
+        cx, cy = event.x, event.y
 
+        # --- Board editor mode ---
         if self.editing:
             board_width = self.square_size * 8
             board_height = self.square_size * 8
 
-            # If dropped on the board, snap to grid
             if 0 <= cx < board_width and 0 <= cy < board_height:
                 row, col = self.screen_to_board(cx, cy)
                 row = max(0, min(7, row))
                 col = max(0, min(7, col))
 
-                # Remove any existing piece at that square
                 occupant = self.get_piece_at(row, col)
                 if occupant is not None and occupant != item:
                     self.canvas.delete(occupant)
@@ -278,32 +283,46 @@ class ChessGUI:
                 self.canvas.coords(item, target_x, target_y)
                 self.pieces[item] = (row, col, self.pieces[item][2], self.pieces[item][3])
             else:
-                # Dragged off the board — remove the piece
                 self.canvas.delete(item)
                 del self.pieces[item]
 
             self.drag_data["item"] = None
             return
 
-        # convert screen position to board coordinates
+        # --- Normal gameplay ---
         row, col = self.screen_to_board(cx, cy)
         row = max(0, min(7, row))
         col = max(0, min(7, col))
 
         old_row, old_col = self.pieces[item][0], self.pieces[item][1]
-
+        
         from_sq = self.board_to_chess_square(old_row, old_col)
         to_sq = self.board_to_chess_square(row, col)
 
-        move = chess.Move(from_sq, to_sq)
+        piece = self.board.piece_at(from_sq)
+
+        # Fix castling when king is dropped on rook
+        if piece and piece.piece_type == chess.KING:
+            target_piece = self.board.piece_at(to_sq)
+
+            if target_piece and target_piece.piece_type == chess.ROOK and target_piece.color == piece.color:
+
+                if to_sq > from_sq:  # kingside
+                    to_sq = chess.square(chess.FILE_G, chess.square_rank(from_sq))
+                else:  # queenside
+                    to_sq = chess.square(chess.FILE_C, chess.square_rank(from_sq))
 
         piece = self.board.piece_at(from_sq)
 
+        # Handle pawn promotion
+        move = chess.Move(from_sq, to_sq)
         if piece and piece.piece_type == chess.PAWN and row in (0, 7):
             promo = self.ask_promotion(piece.color == chess.WHITE)
             move = chess.Move(from_sq, to_sq, promotion=promo)
 
+        # Check legality
         if move not in self.board.legal_moves:
+            # Illegal move → reset piece to old square
             x, y = self.board_to_screen(old_row, old_col)
             self.canvas.coords(item, x, y)
             self.drag_data["item"] = None
@@ -311,31 +330,43 @@ class ChessGUI:
             self.draw_board()
             return
 
-        self.record_move(move)
+        san = self.board.san(move)
+        self.board.push(move)
+        self.record_move(san)
+
         self.last_move = move
         self.selected_square = None
-        self.board.push(move)
+
+        self.canvas.delete(item)
+
+        # Redraw board and pieces
+        self.canvas.delete("piece")
+        self.pieces.clear()
+        
         self.draw_board()
+
+        # Reset GUI piece state completely
+        self.pieces.clear()
+        self.canvas.delete("piece")
+
         self.create_all_pieces()
+
         self.restart_analysis()
 
         self.drag_data["item"] = None
-
         self.update_status()
 
+        # Check for game over
         if self.is_over():
             self.check_game_over()
             return
 
-        if self.analysis_mode:
-            self.restart_analysis()
-
-        # engine responds after player's move in a background thread
+        # Engine move if it's AI's turn
         player_color = chess.WHITE if self.player_is_white else chess.BLACK
         if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
-    
+
     def menu(self):
 
         self.editing = False
@@ -453,9 +484,6 @@ class ChessGUI:
     def clear_menu(self):
         self.canvas.delete("menu_item")
         self.canvas.delete("status")
-
-    def update_multipv(self, event = None):
-        self.num_lines = int(self.lines_var.get())
 
     def update_status(self):
         self.canvas.delete("status")
@@ -994,10 +1022,8 @@ class ChessGUI:
             self.canvas.delete(hint)
         self.move_hints.clear()
 
-
-    def record_move(self, move):
-        # Record the SAN for move. Must be called before board.push(move)
-        self.move_san_history.append(self.board.san(move))
+    def record_move(self, san):
+        self.move_san_history.append(san)
         self.refresh_history_widget()
 
     def draw_history_panel(self, row):
@@ -1225,17 +1251,6 @@ class ChessGUI:
 
         y += 70
 
-        lines_label = ttk.Label(self.root, text="Top Lines:")
-        self.canvas.create_window(center, y, window=lines_label, tags="analysis")
-
-        y += 30
-
-        lines_dropdown = ttk.Combobox(self.root, textvariable=self.lines_var, values=[1,2,3], width=3, state="readonly")
-        lines_dropdown.bind("<<ComboboxSelected>>", self.update_multipv)
-        self.canvas.create_window(center, y, window=lines_dropdown, tags="analysis")
-
-        y += 30
-
         arrow_toggle = ttk.Checkbutton(self.root, text="Show Arrows", variable=self.arrow_var, command=self.toggle_arrows)
         self.canvas.create_window(center, y, window=arrow_toggle, tags="analysis")
 
@@ -1288,6 +1303,13 @@ class ChessGUI:
 
         if not self.show_arrows:
             self.canvas.delete("suggestion_arrow")
+        else:
+            if self.suggested_move:
+                try:
+                    self.draw_suggestion_arrow(str(self.suggested_move))
+                except Exception as e:
+                    print("Error drawing arrow:", e)
+                    self.clear_suggestion_arrow()
 
     def clear_suggestion_arrow(self):
         if self.suggestion_arrow:
