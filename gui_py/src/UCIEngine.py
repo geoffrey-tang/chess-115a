@@ -51,8 +51,7 @@ class UCIEngine:
         except Exception:
             self.engine.kill()
 
-    def analyze(self, movetime_ms = 150, callback = None): #Ask engine for evaluation + principal variation. Returns dict: { score: str, pv: [moves] }
-        
+    def analyze(self, movetime_ms=150, callback=None): #Ask engine for evaluation + principal variation. Returns dict: { score: str, pv: [moves], best_move: str }
         self.send("stop")
         self.send("isready")
         self.wait_ready()
@@ -84,71 +83,15 @@ class UCIEngine:
 
                 if "pv" in parts:
                     best_pv = parts[parts.index("pv") + 1:]
-
-            if line.startswith("bestmove"):
-                best_move = line.split()[1]
-                break
-
-        return {"score": score, "pv": best_pv, "best_move": best_move}
-
-    def wait_ready(self):
-        while True:
-            line = self.engine.stdout.readline().strip()
-            if line == "readyok":
-                break
-
-    def analyze(self, movetime_ms = 300):
-        """
-        Ask engine for evaluation + principal variation.
-        Returns dict: { score: str, pv: [moves] }
-        """
-
-        self.send("isready")
-        self.wait_ready()
-
-        self.send(f"go movetime {movetime_ms}")
-
-        score = None
-        best_pv = []
-        best_move = None
-
-        while True:
-            line = self.engine.stdout.readline().strip()
-
-            if not line:
-                continue
-
-            if line.startswith("info"):
-                parts = line.split()
-
-                if "score" in parts:
-                    try:
-                        idx = parts.index("score")
-                        if parts[idx + 1] == "cp":
-                            score = int(parts[idx + 2]) / 100
-                        elif parts[idx + 1] == "mate":
-                            score = f"Mate in {parts[idx + 2]}"
-                    except:
-                        pass
-
-                if "pv" in parts: 
-                    best_pv = parts[parts.index("pv") + 1:]
-
-                    info = {"score": score, "pv": best_pv, "best_move": best_pv[0]}
-
                     if callback:
-                        callback(info)
-            
+                        callback({"score": score, "pv": best_pv, "best_move": best_pv[0]})
+
             if line.startswith("bestmove"):
                 best_move = line.split()[1]
-                
-                info = {"score": score, "pv": [best_move], "best_move": best_move}
-
                 if callback:
-                    callback(info)
-
+                    callback({"score": score, "pv": [best_move], "best_move": best_move})
                 break
-            
+
         return {"score": score, "pv": best_pv, "best_move": best_move}
 
     def wait_ready(self):

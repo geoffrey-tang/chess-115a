@@ -235,10 +235,9 @@ class ChessGUI:
                 return
             if item not in self.pieces:
                 return
-            tags = self.canvas.gettags(item)
-            piece_code = next((t for t in tags if len(t) == 2 and t[0] in "wb" and t[1] in "prnbqk"), None)
+            piece_code = self.pieces[item][2]
             player_color_char = "w" if self.player_is_white else "b"
-            if piece_code is None or piece_code[0] != player_color_char:
+            if piece_code[0] != player_color_char:
                 return
             self.drag_data["item"] = item
             self.drag_data["x"] = event.x
@@ -301,10 +300,9 @@ class ChessGUI:
             old_row, old_col = self.pieces[item][0], self.pieces[item][1]
             from_sq = self.board_to_chess_square(old_row, old_col)
             to_sq = self.board_to_chess_square(row, col)
-            tags = self.canvas.gettags(item)
-            piece_code = next((t for t in tags if len(t) == 2 and t[0] in "wb" and t[1] in "prnbqk"), None)
+            piece_code = self.pieces[item][2]
             player_color_char = "w" if self.player_is_white else "b"
-            if piece_code and piece_code[0] == player_color_char and from_sq != to_sq:
+            if piece_code[0] == player_color_char and from_sq != to_sq:
                 promotion = None
                 # Determine what piece will occupy from_sq (may be a chained premove)
                 moving_piece = self.board.piece_at(from_sq)
@@ -385,7 +383,7 @@ class ChessGUI:
 
         # Check legality
         if move not in self.board.legal_moves:
-            # Illegal move → reset piece to old square
+            # Illegal move, reset piece to old square
             x, y = self.board_to_screen(old_row, old_col)
             self.canvas.coords(item, x, y)
             self.drag_data["item"] = None
@@ -1328,7 +1326,7 @@ class ChessGUI:
             if self.analysis_engine is None:
                 self.analysis_engine = UCIEngine.UCIEngine(engine_path)
 
-            self.menu()   # redraw menu → shows analysis widgets
+            self.menu()   # redraw menu, shows analysis widgets
 
             if not self.analysis_running:
                 self.analysis_running = True
