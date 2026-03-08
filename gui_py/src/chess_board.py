@@ -39,7 +39,9 @@ class ChessGUI:
         self.history_view_index = None
         self.history_widget = None
         self.engine_thinking = False
-      
+        self.premove_queue = []  # list of (from_sq, to_sq, promotion)
+        self.resigned = False
+
         self.analysis_position = None
         self.board = chess.Board()
         self.analysis_mode = False
@@ -74,6 +76,7 @@ class ChessGUI:
         self.canvas.tag_bind("draggable", "<ButtonPress-1>", self.drag_start)
         self.canvas.tag_bind("draggable", "<B1-Motion>", self.drag_motion)
         self.canvas.tag_bind("draggable", "<ButtonRelease-1>", self.drag_release)
+        self.canvas.bind("<ButtonRelease-3>", lambda e: self.cancel_premove())
 
     # draw/ redraw the board using create_rectangle and arithmetic
     def draw_board(self):
@@ -85,6 +88,18 @@ class ChessGUI:
         if self.last_move:
             last_move_squares.add((chess.square_rank(self.last_move.from_square), chess.square_file(self.last_move.from_square),))
             last_move_squares.add((chess.square_rank(self.last_move.to_square), chess.square_file(self.last_move.to_square),))
+
+        # Squares involved in queued premoves (only shown in live position)
+        # Earlier premoves = light red; most-recently queued = darker red
+        premove_squares = set()
+        premove_latest_squares = set()
+        if self.premove_queue and self.history_view_index is None:
+            for pm in self.premove_queue[:-1]:
+                premove_squares.add((chess.square_rank(pm[0]), chess.square_file(pm[0])))
+                premove_squares.add((chess.square_rank(pm[1]), chess.square_file(pm[1])))
+            last = self.premove_queue[-1]
+            premove_latest_squares.add((chess.square_rank(last[0]), chess.square_file(last[0])))
+            premove_latest_squares.add((chess.square_rank(last[1]), chess.square_file(last[1])))
 
         # Draw squares (screen coordinates)
         for screen_row in range(8):
@@ -102,6 +117,10 @@ class ChessGUI:
                     color = "#f6f669" if is_light else "#baca2b"
                 elif (board_row, board_col) in last_move_squares:
                     color = "#cdd26e" if is_light else "#aaa23a"
+                elif (board_row, board_col) in premove_latest_squares:
+                    color = "#e87070" if is_light else "#b83030"
+                elif (board_row, board_col) in premove_squares:
+                    color = "#f0b8b8" if is_light else "#d06060"
                 else:
                     color = self.light_square if is_light else self.dark_square
 
@@ -210,9 +229,22 @@ class ChessGUI:
         if self.history_view_index is not None:
             return
 
-        # Prevent moves while engine is thinking
+        # During engine thinking: allow queuing a premove
         if self.engine_thinking:
+            if "piece" not in self.canvas.gettags(item):
+                return
+            if item not in self.pieces:
+                return
+            tags = self.canvas.gettags(item)
+            piece_code = next((t for t in tags if len(t) == 2 and t[0] in "wb" and t[1] in "prnbqk"), None)
+            player_color_char = "w" if self.player_is_white else "b"
+            if piece_code is None or piece_code[0] != player_color_char:
+                return
+            self.drag_data["item"] = item
+            self.drag_data["x"] = event.x
+            self.drag_data["y"] = event.y
             return
+
         if "piece" not in self.canvas.gettags(item):
             self.clear_move_hints()
             return
@@ -259,12 +291,43 @@ class ChessGUI:
 
         self.clear_move_hints()
 
-        if self.engine_thinking and not self.analysis_mode:
+        cx, cy = self.canvas.coords(item)
+
+        # During engine thinking: capture move as a premove instead of executing it
+        if self.engine_thinking and not self.editing:
+            row, col = self.screen_to_board(cx, cy)
+            row = max(0, min(7, row))
+            col = max(0, min(7, col))
+            old_row, old_col = self.pieces[item][0], self.pieces[item][1]
+            from_sq = self.board_to_chess_square(old_row, old_col)
+            to_sq = self.board_to_chess_square(row, col)
+            tags = self.canvas.gettags(item)
+            piece_code = next((t for t in tags if len(t) == 2 and t[0] in "wb" and t[1] in "prnbqk"), None)
+            player_color_char = "w" if self.player_is_white else "b"
+            if piece_code and piece_code[0] == player_color_char and from_sq != to_sq:
+                promotion = None
+                # Determine what piece will occupy from_sq (may be a chained premove)
+                moving_piece = self.board.piece_at(from_sq)
+                if moving_piece is None:
+                    for pm in self.premove_queue:
+                        if pm[1] == from_sq:
+                            moving_piece = self.board.piece_at(pm[0])
+                            break
+                if moving_piece and moving_piece.piece_type == chess.PAWN and row in (0, 7):
+                    promotion = self.ask_promotion(player_color_char == "w")
+                self.premove_queue.append((from_sq, to_sq, promotion))
+                # Snap piece visually to the premove destination
+                tx, ty = self.board_to_screen(row, col)
+                self.canvas.coords(item, tx, ty)
+            else:
+                # Invalid premove target = snap piece back
+                x, y = self.board_to_screen(old_row, old_col)
+                self.canvas.coords(item, x, y)
+            self.drag_data["item"] = None
+            self.selected_square = None
+            self.draw_board()
             return
 
-        cx, cy = event.x, event.y
-
-        # --- Board editor mode ---
         if self.editing:
             board_width = self.square_size * 8
             board_height = self.square_size * 8
@@ -611,6 +674,8 @@ class ChessGUI:
         self.move_san_history = []
         self.history_view_index = None
         self.history_widget = None
+        self.resigned = False
+        self.premove_queue = []
         self.draw_board()
         self.create_all_pieces()
         self.engine_thinking = False
@@ -731,6 +796,8 @@ class ChessGUI:
         self.start_fen = None
         self.last_move = None
         self.selected_square = None
+        self.resigned = False
+        self.premove_queue = []
         self.move_san_history = []
         self.history_view_index = None
         self.history_widget = None
@@ -749,6 +816,7 @@ class ChessGUI:
         if not hasattr(self, "board") or self.is_over():
             return
         winner = "Black" if self.player_is_white else "White"
+        self.resigned = True
         messagebox.showinfo("Game Over", f"You forfeited. {winner} wins.")
         self.engine_thinking = True  # block further moves
         self.menu()  # Refresh menu to update button display
@@ -795,6 +863,8 @@ class ChessGUI:
         self.bot_vs_bot_paused = False
         self.flipped = False
         self.engine_thinking = False
+        self.resigned = False
+        self.premove_queue = []
         self.last_move = None
         self.selected_square = None
         self.move_san_history = []
@@ -981,6 +1051,31 @@ class ChessGUI:
         self.update_status()
         if self.is_over():
             self.check_game_over()
+            return
+
+        # Execute the next premove in the queue if one exists
+        if self.premove_queue and self.history_view_index is None:
+            from_sq, to_sq, promotion = self.premove_queue.pop(0)
+            pm = chess.Move(from_sq, to_sq, promotion=promotion) if promotion else chess.Move(from_sq, to_sq)
+            if pm in self.board.legal_moves:
+                self.record_move(pm)
+                self.last_move = pm
+                self.board.push(pm)
+                self.draw_board()
+                self.create_all_pieces()
+                self.restart_analysis()
+                self.update_status()
+                if self.is_over():
+                    self.check_game_over()
+                    return
+                # Engine responds to the premove
+                self.engine_thinking = True
+                threading.Thread(target=self.engine_think, daemon=True).start()
+            else:
+                # Premove was illegal = discard the rest of the queue
+                self.premove_queue.clear()
+                self.draw_board()
+                self.create_all_pieces()
 
     def board_to_chess_square(self, row, col):
         return chess.square(col, row)
@@ -1013,6 +1108,14 @@ class ChessGUI:
         for hint in self.move_hints:
             self.canvas.delete(hint)
         self.move_hints.clear()
+
+    def cancel_premove(self):
+        if not self.premove_queue:
+            return
+        self.premove_queue.clear()
+        self.draw_board()
+        if hasattr(self, 'pieces'):
+            self.create_all_pieces()
 
     def record_move(self, move):
         # Record the SAN for move. Must be called before board.push(move)
@@ -1189,7 +1292,7 @@ class ChessGUI:
 
     def is_over(self):
         # True if the game is over, i.e. threefold repetition
-        return self.board.is_game_over() or self.board.is_repetition(3)
+        return self.resigned or self.board.is_game_over() or self.board.is_repetition(3)
 
     def check_game_over(self):
         if self.board.is_checkmate():
