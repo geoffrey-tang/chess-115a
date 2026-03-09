@@ -56,6 +56,15 @@ class ChessGUI:
         self.suggested_move = None
         self.show_arrows = True
 
+        # Sidebar layout constants
+        self.SB = self.square_size * 8      # sidebar x start
+        self.SW = self.menu_size             # sidebar width
+        self.PAD = 20                        # left margin
+        self.BTN_W = self.SW - self.PAD * 2  # button pixel width
+        self.ROW_H = 44                      # pixels between rows
+        self.SIDEBAR_BG = "#f0f0f0"
+        self.SEP_COLOR = "#d0d0d0"
+
         self.setup_ui()
         self.draw_board()
         self.load_images()
@@ -429,52 +438,14 @@ class ChessGUI:
         self.canvas.config(height=self.square_size * 8)
         self.clear_menu()
 
-        SB = self.square_size * 8   # sidebar x start
-        SW = self.menu_size          # sidebar width
-        PAD = 20                     # left margin
-        BTN_W = SW - PAD * 2        # button width fills most of sidebar
-        ROW_H = 44                   # pixels between rows
-        BG = "#f0f0f0"
-        SEP_COLOR = "#d0d0d0"
+        self.canvas.create_rectangle(self.SB, 0, self.SB + self.SW, self.square_size * 8,
+                                     fill=self.SIDEBAR_BG, outline="", tags="menu_item")
+        self.menu_y = 20
 
-        self.canvas.create_rectangle(SB, 0, SB + SW, self.square_size * 8, fill=BG, outline="", tags="menu_item")
-
-        y = 20  # current y cursor
-
-        def btn(text, command, style="outline", width=BTN_W):
-            # Place a ttkbootstrap button at y
-            nonlocal y
-            b = ttk.Button(self.root, text=text, command=command, bootstyle=style)
-            self.canvas.create_window(SB + PAD, y, window=b, anchor="nw", tags="menu_item", width=width)
-            y += ROW_H
-
-        def dropdown(var, *options, command=None):
-            # Place a styled OptionMenu at y
-            nonlocal y
-            # Style the OptionMenu to match the sidebar
-            om = tk.OptionMenu(self.root, var, *options, command=command if command else lambda _: None)
-            om.config(bg=BG, fg="#222222", activebackground="#e0e0e0",
-                      activeforeground="#222222", relief="flat",
-                      font=("Arial", 10),
-                      highlightthickness=0, bd=0, cursor="hand2")
-            om["menu"].config(bg="white", fg="#222222", relief="flat", font=("Arial", 10))
-            self.canvas.create_window(SB + PAD, y, window=om, anchor="nw", tags="menu_item", width=BTN_W)
-            y += ROW_H
-
-        def sep():
-            # Draw a horizontal divider
-            nonlocal y
-            y += 4
-            self.canvas.create_line(SB + PAD, y, SB + SW - PAD, y, fill=SEP_COLOR, tags="menu_item")
-            y += 10
-
-        def label(text):
-            # Small grey section label
-            nonlocal y
-            lbl = tk.Label(self.root, text=text, bg=BG, fg="#888888",
-                           font=("Arial", 8))
-            self.canvas.create_window(SB + PAD, y, window=lbl, anchor="nw", tags="menu_item")
-            y += 18
+        btn = self.sidebar_btn
+        dropdown = self.sidebar_dropdown
+        sep = self.sidebar_sep
+        label = self.sidebar_label
 
         if not hasattr(self, "game_mode"):
             self.game_mode = tk.StringVar(value="Player vs Engine")
@@ -532,9 +503,9 @@ class ChessGUI:
         btn(analysis_label, self.start_analysis_mode)
 
         if self.analysis_mode and hasattr(self, "board") and not self.editing:
-            center = SB + SW // 2
-            self.create_analysis_display(center, y)
-            y += 110
+            center = self.SB + self.SW // 2
+            self.create_analysis_display(center, self.menu_y)
+            self.menu_y += 110
 
         # POSITION
         sep()
@@ -543,17 +514,17 @@ class ChessGUI:
             btn("Load FEN / PGN", self.load_fen_pgn_dialog)
 
         if hasattr(self, "board") and not self.editing:
-            half = (BTN_W - 4) // 2
+            half = (self.BTN_W - 4) // 2
             b1 = ttk.Button(self.root, text="Copy FEN", command=self.copy_fen, bootstyle="outline")
             b2 = ttk.Button(self.root, text="Copy PGN", command=self.copy_pgn, bootstyle="outline")
-            self.canvas.create_window(SB + PAD, y, window=b1, anchor="nw", tags="menu_item", width=half)
-            self.canvas.create_window(SB + PAD + half + 4, y, window=b2, anchor="nw", tags="menu_item", width=BTN_W - half - 4)
-            y += ROW_H
+            self.canvas.create_window(self.SB + self.PAD, self.menu_y, window=b1, anchor="nw", tags="menu_item", width=half)
+            self.canvas.create_window(self.SB + self.PAD + half + 4, self.menu_y, window=b2, anchor="nw", tags="menu_item", width=self.BTN_W - half - 4)
+            self.menu_y += self.ROW_H
 
         # MOVE HISTORY
         sep()
         if hasattr(self, "board") and not self.editing:
-            history_row = int(y / 50) + 1
+            history_row = int(self.menu_y / 50) + 1
             self.draw_history_panel(history_row)
 
         self.update_status()
@@ -693,6 +664,40 @@ class ChessGUI:
         black_score = sum(PIECE_VALUES[pt] * cnt for pt, cnt in black_captured.items())
         return white_captured, black_captured, white_score - black_score
 
+    # Shared sidebar helpers
+    def sidebar_btn(self, text, command, style="outline", width=None):
+        if width is None:
+            width = self.BTN_W
+        b = ttk.Button(self.root, text=text, command=command, bootstyle=style)
+        self.canvas.create_window(self.SB + self.PAD, self.menu_y, window=b,
+                                  anchor="nw", tags="menu_item", width=width)
+        self.menu_y += self.ROW_H
+
+    def sidebar_dropdown(self, var, *options, command=None):
+        om = tk.OptionMenu(self.root, var, *options, command=command)
+        om.config(bg=self.SIDEBAR_BG, fg="#222222", activebackground="#e0e0e0",
+                  activeforeground="#222222", relief="flat",
+                  font=("Arial", 10),
+                  highlightthickness=0, bd=0, cursor="hand2")
+        om["menu"].config(bg="white", fg="#222222", relief="flat", font=("Arial", 10))
+        self.canvas.create_window(self.SB + self.PAD, self.menu_y, window=om,
+                                  anchor="nw", tags="menu_item", width=self.BTN_W)
+        self.menu_y += self.ROW_H
+
+    def sidebar_sep(self):
+        self.menu_y += 4
+        self.canvas.create_line(self.SB + self.PAD, self.menu_y,
+                                self.SB + self.SW - self.PAD, self.menu_y,
+                                fill=self.SEP_COLOR, tags="menu_item")
+        self.menu_y += 10
+
+    def sidebar_label(self, text):
+        lbl = tk.Label(self.root, text=text, bg=self.SIDEBAR_BG, fg="#888888",
+                       font=("Arial", 8))
+        self.canvas.create_window(self.SB + self.PAD, self.menu_y, window=lbl,
+                                  anchor="nw", tags="menu_item")
+        self.menu_y += 18
+
     def clear_menu(self):
         self.canvas.delete("menu_item")
         self.canvas.delete("status")
@@ -745,7 +750,7 @@ class ChessGUI:
         self.canvas.create_text(x, y, text=text, fill=color,
                                 font=("Arial", 11, "bold"), tags="status")
 
-    def board_editor(self, _value=None):
+    def board_editor(self):
         self.editing = True
         self.clear_menu()
         self.canvas.delete("piece")
@@ -761,47 +766,14 @@ class ChessGUI:
         self.create_all_pieces()
         self.draw_palette()
 
-        SB = self.square_size * 8
-        SW = self.menu_size
-        PAD = 20
-        BTN_W = SW - PAD * 2
-        ROW_H = 44
-        BG = "#f0f0f0"
-        SEP_COLOR = "#d0d0d0"
+        self.canvas.create_rectangle(self.SB, 0, self.SB + self.SW, board_height + self.palette_height,
+                                     fill=self.SIDEBAR_BG, outline="", tags="menu_item")
+        self.menu_y = 20
 
-        self.canvas.create_rectangle(SB, 0, SB + SW, board_height + self.palette_height, fill=BG, outline="", tags="menu_item")
-
-        y = 20
-
-        def btn(text, command, style="outline"):
-            nonlocal y
-            b = ttk.Button(self.root, text=text, command=command, bootstyle=style)
-            self.canvas.create_window(SB + PAD, y, window=b, anchor="nw", tags="menu_item", width=BTN_W)
-            y += ROW_H
-
-        def dropdown(var, *options):
-            nonlocal y
-            om = tk.OptionMenu(self.root, var, *options)
-            om.config(bg=BG, fg="#222222", activebackground="#e0e0e0",
-                      activeforeground="#222222", relief="flat",
-                      font=("Arial", 10),
-                      highlightthickness=0, bd=0, cursor="hand2")
-            om["menu"].config(bg="white", fg="#222222", relief="flat", font=("Arial", 10))
-            self.canvas.create_window(SB + PAD, y, window=om, anchor="nw", tags="menu_item", width=BTN_W)
-            y += ROW_H
-
-        def sep():
-            nonlocal y
-            y += 4
-            self.canvas.create_line(SB + PAD, y, SB + SW - PAD, y,
-                                    fill=SEP_COLOR, tags="menu_item")
-            y += 10
-
-        def label(text):
-            nonlocal y
-            lbl = tk.Label(self.root, text=text, bg=BG, fg="#888888", font=("Arial", 8))
-            self.canvas.create_window(SB + PAD, y, window=lbl, anchor="nw", tags="menu_item")
-            y += 18
+        btn = self.sidebar_btn
+        dropdown = self.sidebar_dropdown
+        sep = self.sidebar_sep
+        label = self.sidebar_label
 
         btn("Back", self.menu)
 
@@ -818,18 +790,18 @@ class ChessGUI:
         self.black_queenside = tk.BooleanVar(value=True)
 
         white_frame = ttk.Frame(self.root)
-        tk.Label(white_frame, text="White", bg=BG, width=5, anchor="w").pack(side="left")
+        tk.Label(white_frame, text="White", bg=self.SIDEBAR_BG, width=5, anchor="w").pack(side="left")
         ttk.Checkbutton(white_frame, text="O-O", variable=self.white_kingside).pack(side="left", padx=(4, 0))
         ttk.Checkbutton(white_frame, text="O-O-O", variable=self.white_queenside).pack(side="left", padx=(4, 0))
-        self.canvas.create_window(SB + PAD + BTN_W // 2, y, window=white_frame, anchor="center", tags="menu_item")
-        y += ROW_H - 8
+        self.canvas.create_window(self.SB + self.PAD + self.BTN_W // 2, self.menu_y, window=white_frame, anchor="center", tags="menu_item")
+        self.menu_y += self.ROW_H - 8
 
         black_frame = ttk.Frame(self.root)
-        tk.Label(black_frame, text="Black", bg=BG, width=5, anchor="w").pack(side="left")
+        tk.Label(black_frame, text="Black", bg=self.SIDEBAR_BG, width=5, anchor="w").pack(side="left")
         ttk.Checkbutton(black_frame, text="O-O", variable=self.black_kingside).pack(side="left", padx=(4, 0))
         ttk.Checkbutton(black_frame, text="O-O-O", variable=self.black_queenside).pack(side="left", padx=(4, 0))
-        self.canvas.create_window(SB + PAD + BTN_W // 2, y, window=black_frame, anchor="center", tags="menu_item")
-        y += ROW_H
+        self.canvas.create_window(self.SB + self.PAD + self.BTN_W // 2, self.menu_y, window=black_frame, anchor="center", tags="menu_item")
+        self.menu_y += self.ROW_H
 
         sep()
         label("BOARD")
@@ -1569,13 +1541,9 @@ class ChessGUI:
     def create_analysis_display(self, center, y):
         self.canvas.delete("analysis")
 
-        SB = self.square_size * 8
-        SW = self.menu_size
-        PAD = 20
-
         # Eval box background
         self.canvas.create_rectangle(
-            SB + PAD, y, SB + SW - PAD, y + 56,
+            self.SB + self.PAD, y, self.SB + self.SW - self.PAD, y + 56,
             fill="#e8e8e8", outline="#d0d0d0",
             width=1, tags="analysis"
         )
@@ -1595,7 +1563,7 @@ class ChessGUI:
             command=self.toggle_arrows,
             bootstyle="round-toggle"
         )
-        self.canvas.create_window(SB + PAD, y + 70, window=arrow_toggle, anchor="nw", tags="analysis")
+        self.canvas.create_window(self.SB + self.PAD, y + 70, window=arrow_toggle, anchor="nw", tags="analysis")
 
     def analysis_loop(self):
 
