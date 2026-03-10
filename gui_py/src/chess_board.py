@@ -1,4 +1,4 @@
-import os
+﻿import os
 import time
 import tkinter as tk
 import ttkbootstrap as ttk
@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox
 engine_path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "build", "chess_cli"))
 
 class ChessGUI:
+    # Initialize GUI state, board state, and initial widgets; returns None.
     def __init__(self, root):
         self.root = root
         self.root.title("Chess Board")
@@ -72,6 +73,7 @@ class ChessGUI:
         self.menu()
 
     # initialization of tkinter frame and canvas objects
+    # Build the main frame/canvas and bind input handlers; returns None.
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding = 10)
         main_frame.pack()
@@ -90,6 +92,7 @@ class ChessGUI:
         self.canvas.bind("<ButtonRelease-3>", lambda e: self.cancel_premove())
 
     # draw/ redraw the board using create_rectangle and arithmetic
+    # Redraw board squares, highlights, and coordinate labels; returns None.
     def draw_board(self):
 
         self.canvas.delete("square")  # only delete squares, not pieces
@@ -137,7 +140,7 @@ class ChessGUI:
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="", tags="square")
 
-        # Rank labels (1–8) along the left edge of the board
+        # Rank labels (1-8) along the left edge of the board
         for screen_row in range(8):
             board_row, board_col = self.screen_to_board(1, screen_row * self.square_size + 1)
             is_light = (board_row + board_col) % 2 == 1
@@ -148,7 +151,7 @@ class ChessGUI:
                 fill=text_color, font=("Arial", 10, "bold"), tags="square",
             )
 
-        # File labels (a–h) along the bottom edge of the board
+        # File labels (a-h) along the bottom edge of the board
         for screen_col in range(8):
             board_row, board_col = self.screen_to_board(
                 screen_col * self.square_size + 1,
@@ -171,6 +174,7 @@ class ChessGUI:
         self.canvas.tag_raise("status")
         self.canvas.tag_raise("analysis")
     
+    # Load and scale piece images into memory; returns None.
     def load_images(self):
         self.images = {}
         for color in ("w", "b"):
@@ -184,6 +188,7 @@ class ChessGUI:
 
                 self.images[key] = img
 
+    # Create one draggable piece sprite on the canvas; returns None.
     def create_piece(self, row, col, piece_code, color):
     
         x, y = self.board_to_screen(row, col)
@@ -203,6 +208,7 @@ class ChessGUI:
         self.canvas.tag_bind(item, "<B1-Motion>", self.drag_motion)
         self.canvas.tag_bind(item, "<ButtonRelease-1>", self.drag_release)
 
+    # Recreate all visible pieces from the current board; returns None.
     def create_all_pieces(self):
         # remove all pieces from canvas
         self.canvas.delete("piece")
@@ -219,6 +225,7 @@ class ChessGUI:
 
         self.canvas.tag_raise("suggestion_arrow")
 
+    # Handle mouse press to begin dragging/selecting a piece; returns None.
     def drag_start(self, event):
         item = self.canvas.find_closest(event.x, event.y)[0]
 
@@ -285,6 +292,7 @@ class ChessGUI:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
+    # Move the currently dragged piece with the cursor; returns None.
     def drag_motion(self, event):
         item = self.drag_data["item"]
         if item is None:
@@ -298,6 +306,7 @@ class ChessGUI:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
+    # Finalize drag, validate move/premove, and update position; returns None.
     def drag_release(self, event):
         item = self.drag_data["item"]
         if item is None:
@@ -431,6 +440,7 @@ class ChessGUI:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
+    # Render the sidebar controls for the current mode/state; returns None.
     def menu(self):
 
         self.editing = False
@@ -529,6 +539,7 @@ class ChessGUI:
 
         self.update_status()
 
+    # Open a dialog to paste and load FEN or PGN text; returns None.
     def load_fen_pgn_dialog(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Load FEN or PGN")
@@ -547,6 +558,7 @@ class ChessGUI:
         status_lbl = tk.Label(frame, textvariable=status_var, fg="#c0392b")
         status_lbl.pack(anchor="w")
 
+        # Parse pasted FEN/PGN and resume the GUI from that position; returns None.
         def do_load():
             raw = text.get("1.0", "end").strip()
             if not raw:
@@ -589,6 +601,7 @@ class ChessGUI:
         ttk.Button(frame, text="Load", command=do_load).pack(side="right")
         ttk.Button(frame, text="Cancel", command=dialog.destroy).pack(side="right", padx=(0, 6))
 
+    # Reset game state from a provided board and move history; returns None.
     def resume_from_board(self, board, start_fen, move_san_history):
         if self.bot_vs_bot_active:
             self.cleanup_bot_engines()
@@ -623,6 +636,7 @@ class ChessGUI:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
+    # Copy the current board FEN string to clipboard; returns None.
     def copy_fen(self):
         if not hasattr(self, "board"):
             return
@@ -631,6 +645,7 @@ class ChessGUI:
         self.root.clipboard_append(fen)
         messagebox.showinfo("Copied", "FEN copied to clipboard.")
 
+    # Export current game as PGN and copy it to clipboard; returns None.
     def copy_pgn(self):
         if not hasattr(self, "board"):
             return
@@ -641,6 +656,7 @@ class ChessGUI:
         self.root.clipboard_append(pgn_str)
         messagebox.showinfo("Copied", "PGN copied to clipboard.")
 
+    # Compute captured material for both sides; returns white_captured, black_captured, and net score.
     def get_material_info(self):
         # Returns (white_captured, black_captured, net) where net > 0 means white is ahead.
         PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
@@ -665,6 +681,7 @@ class ChessGUI:
         return white_captured, black_captured, white_score - black_score
 
     # Shared sidebar helpers
+    # Add one styled button to the sidebar layout; returns None.
     def sidebar_btn(self, text, command, style="outline", width=None):
         if width is None:
             width = self.BTN_W
@@ -673,6 +690,7 @@ class ChessGUI:
                                   anchor="nw", tags="menu_item", width=width)
         self.menu_y += self.ROW_H
 
+    # Add one dropdown control to the sidebar; returns None.
     def sidebar_dropdown(self, var, *options, command=None):
         om = tk.OptionMenu(self.root, var, *options, command=command)
         om.config(bg=self.SIDEBAR_BG, fg="#222222", activebackground="#e0e0e0",
@@ -684,6 +702,7 @@ class ChessGUI:
                                   anchor="nw", tags="menu_item", width=self.BTN_W)
         self.menu_y += self.ROW_H
 
+    # Draw a horizontal separator in the sidebar; returns None.
     def sidebar_sep(self):
         self.menu_y += 4
         self.canvas.create_line(self.SB + self.PAD, self.menu_y,
@@ -691,6 +710,7 @@ class ChessGUI:
                                 fill=self.SEP_COLOR, tags="menu_item")
         self.menu_y += 10
 
+    # Add a small section label in the sidebar; returns None.
     def sidebar_label(self, text):
         lbl = tk.Label(self.root, text=text, bg=self.SIDEBAR_BG, fg="#888888",
                        font=("Arial", 8))
@@ -698,10 +718,12 @@ class ChessGUI:
                                   anchor="nw", tags="menu_item")
         self.menu_y += 18
 
+    # Remove sidebar/menu and status canvas items; returns None.
     def clear_menu(self):
         self.canvas.delete("menu_item")
         self.canvas.delete("status")
 
+    # Refresh material and turn/game-status text in sidebar; returns None.
     def update_status(self):
         self.canvas.delete("status")
         if not hasattr(self, "board") or self.editing:
@@ -711,8 +733,8 @@ class ChessGUI:
 
         # Material counter
         PIECE_ORDER = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT, chess.PAWN]
-        BLACK_SYM = {chess.PAWN: '♟', chess.KNIGHT: '♞', chess.BISHOP: '♝', chess.ROOK: '♜', chess.QUEEN: '♛'}
-        WHITE_SYM = {chess.PAWN: '♙', chess.KNIGHT: '♘', chess.BISHOP: '♗', chess.ROOK: '♖', chess.QUEEN: '♕'}
+        BLACK_SYM = {chess.PAWN: '\u265F', chess.KNIGHT: '\u265E', chess.BISHOP: '\u265D', chess.ROOK: '\u265C', chess.QUEEN: '\u265B'}
+        WHITE_SYM = {chess.PAWN: '\u2659', chess.KNIGHT: '\u2658', chess.BISHOP: '\u2657', chess.ROOK: '\u2656', chess.QUEEN: '\u2655'}
 
         white_cap, black_cap, net = self.get_material_info()
 
@@ -733,16 +755,16 @@ class ChessGUI:
 
         if self.board.is_checkmate():
             winner = "Black" if self.board.turn == chess.WHITE else "White"
-            text, color = f"Checkmate — {winner} wins!", "#c0392b"
+            text, color = f"Checkmate - {winner} wins!", "#c0392b"
         elif self.board.is_stalemate():
-            text, color = "Stalemate — Draw", "#555555"
+            text, color = "Stalemate - Draw", "#555555"
         elif self.board.is_insufficient_material():
-            text, color = "Draw — insufficient material", "#555555"
+            text, color = "Draw - insufficient material", "#555555"
         elif self.board.is_repetition(3):
-            text, color = "Draw — threefold repetition", "#555555"
+            text, color = "Draw - threefold repetition", "#555555"
         elif self.board.is_check():
             turn = "White" if self.board.turn == chess.WHITE else "Black"
-            text, color = f"{turn} to move  •  CHECK!", "#c0392b"
+            text, color = f"{turn} to move - CHECK!", "#c0392b"
         else:
             turn = "White" if self.board.turn == chess.WHITE else "Black"
             text, color = f"{turn} to move", "#222222"
@@ -750,6 +772,7 @@ class ChessGUI:
         self.canvas.create_text(x, y, text=text, fill=color,
                                 font=("Arial", 11, "bold"), tags="status")
 
+    # Enter board editor mode and show editing controls; returns None.
     def board_editor(self):
         self.editing = True
         self.clear_menu()
@@ -817,17 +840,20 @@ class ChessGUI:
 
         sep()
         btn("Continue from here", self.continue_from_editor, style="success")
-
+    
+    # Reset editor position back to standard start; returns None.
     def reset_editor(self):
         self.board = chess.Board()
         self.canvas.delete("piece")
         self.pieces = {}
         self.create_all_pieces()
 
+    # Remove all pieces from the editor board; returns None.
     def clear_board(self):
         self.canvas.delete("piece")
         self.pieces = {}
 
+    # Convert edited board to game state and continue play; returns None.
     def continue_from_editor(self):
         white_to_play = self.selected_side.get() == "White to play"
         self.start_fen = self.board_to_fen(white_to_play)
@@ -866,7 +892,8 @@ class ChessGUI:
         if self.board.turn != player_color:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
-
+    
+    # Draw draggable piece palette below the board; returns None.
     def draw_palette(self):
         board_height = self.square_size * 8
         palette_y = board_height + 20
@@ -898,6 +925,7 @@ class ChessGUI:
         self.canvas.tag_bind("palette_piece", "<B1-Motion>", self.drag_motion)
         self.canvas.tag_bind("palette_piece", "<ButtonRelease-1>", self.palette_drag_release)
 
+    # Start dragging a cloned piece from the palette; returns None.
     def palette_drag_start(self, event):
         item = self.canvas.find_closest(event.x, event.y)[0]
         tags = self.canvas.gettags(item)
@@ -921,6 +949,7 @@ class ChessGUI:
         self.drag_data["y"] = event.y
         self.drag_data["from_palette"] = True
 
+    # Drop/discard palette piece and update editor state; returns None.
     def palette_drag_release(self, event):
         item = self.drag_data["item"]
         if item is None:
@@ -961,6 +990,7 @@ class ChessGUI:
         self.drag_data["from_palette"] = False
 
     # main game loop
+    # Start a new player-vs-engine or engine-vs-engine game; returns None.
     def game_started(self):
         if self.game_mode.get() == "Engine vs Engine":
             self.start_bot_vs_bot()
@@ -988,6 +1018,7 @@ class ChessGUI:
             self.engine_thinking = True
             threading.Thread(target=self.engine_think, daemon=True).start()
 
+    # Resign the current player game and lock interaction; returns None.
     def forfeit_game(self):
         if not hasattr(self, "board") or self.is_over():
             return
@@ -997,10 +1028,12 @@ class ChessGUI:
         self.engine_thinking = True  # block further moves
         self.menu()  # Refresh menu to update button display
 
+    # Handle game-mode dropdown changes and refresh menu; returns None.
     def on_mode_change(self, _value=None):
         self.cleanup_bot_engines()
         self.menu()
 
+    # Open file picker to choose an engine executable; returns None.
     def browse_engine(self, color):
         path = filedialog.askopenfilename(
             title=f"Select {color.title()} Engine",
@@ -1013,6 +1046,7 @@ class ChessGUI:
                 self.black_engine_path = path
             self.menu()
 
+    # Stop and clear both engine-vs-engine engine instances; returns None.
     def cleanup_bot_engines(self):
         self.bot_vs_bot_active = False
         self.bot_vs_bot_paused = False
@@ -1023,6 +1057,7 @@ class ChessGUI:
             self.black_engine.quit()
             self.black_engine = None
 
+    # Initialize and launch an engine-vs-engine game loop; returns None.
     def start_bot_vs_bot(self, fen=None):
         self.cleanup_bot_engines()
         if fen:
@@ -1055,6 +1090,7 @@ class ChessGUI:
         delay = self.move_delay.get() if hasattr(self, 'move_delay') else 500
         self.root.after(delay, self.bot_vs_bot_loop)
 
+    # Schedule the next engine-vs-engine move cycle; returns None.
     def bot_vs_bot_loop(self):
         if not self.bot_vs_bot_active or self.bot_vs_bot_paused:
             return
@@ -1065,6 +1101,7 @@ class ChessGUI:
         engine = self.white_engine if self.board.turn == chess.WHITE else self.black_engine
         threading.Thread(target=self.bot_think, args=(engine,), daemon=True).start()
 
+    # Ask the active bot engine for its best move; returns None.
     def bot_think(self, engine):
         try:
             movetime = self.think_time.get() if hasattr(self, 'think_time') else 1000
@@ -1082,6 +1119,7 @@ class ChessGUI:
             print(f"Engine error: {e}")
             self.root.after(0, self.stop_bot_game)
 
+    # Apply one bot move and queue the next cycle; returns None.
     def finish_bot_move(self, move_uci):
         if not self.bot_vs_bot_active:
             return
@@ -1101,16 +1139,19 @@ class ChessGUI:
         delay = self.move_delay.get() if hasattr(self, 'move_delay') else 500
         self.root.after(delay, self.bot_vs_bot_loop)
 
+    # Pause or resume engine-vs-engine autoplay; returns None.
     def toggle_pause(self):
         self.bot_vs_bot_paused = not self.bot_vs_bot_paused
         if not self.bot_vs_bot_paused:
             self.bot_vs_bot_loop()
         self.menu()
 
+    # Stop engine-vs-engine mode and return to menu; returns None.
     def stop_bot_game(self):
         self.cleanup_bot_engines()
         self.menu()
 
+    # Toggle board orientation and reposition visible pieces; returns None.
     def flip_board(self):
         self.flipped = not self.flipped
         self.draw_board()
@@ -1120,7 +1161,7 @@ class ChessGUI:
             x, y = self.board_to_screen(row, col)
             self.canvas.coords(item, x, y)
 
-    # converts row and column board coordinates to screen-pixel coordinates
+    # Convert board row/col into canvas pixel center; returns (x, y).
     def board_to_screen(self, row, col):
         if self.flipped:
             screen_row = row
@@ -1132,7 +1173,7 @@ class ChessGUI:
         y = screen_row * self.square_size + self.square_size // 2
         return x, y
 
-    # converts screen-pixel coordinates to row, column board coordinates
+    # Convert canvas pixel coords into board row/col; returns (row, col).
     def screen_to_board(self, x, y):
         screen_col = int(x // self.square_size)
         screen_row = int(y // self.square_size)
@@ -1144,12 +1185,14 @@ class ChessGUI:
             col = screen_col
         return row, col
 
+    # Find canvas item occupying a board square; returns item id or None.
     def get_piece_at(self, row, col):
         for item, (r, c, _, _) in self.pieces.items():
             if r == row and c == col:
                 return item
         return None
 
+    # Serialize editor pieces and options into a FEN string; returns the FEN string.
     def board_to_fen(self, white_to_play=True):
         piece_map = {
             "wp": chess.Piece(chess.PAWN, chess.WHITE),
@@ -1186,9 +1229,7 @@ class ChessGUI:
 
         return board.fen()
 
-    # Thread stuff:
-    # if you don't use threads, calling the engine
-    # for moves freezes everything else. Not good
+    # Query engine for move in current position on a worker thread; returns None.
     def engine_think(self):
         uci_moves = [m.uci() for m in self.board.move_stack]
         if self.start_fen:
@@ -1203,6 +1244,7 @@ class ChessGUI:
         # tkinter function to keep things thread-safe
         self.root.after(0, self.finish_engine_move)
 
+    # Apply engine move, premove follow-up, and refresh UI; returns None.
     def finish_engine_move(self):
         # Parse the UCI move and push to chess.Board
         move = chess.Move.from_uci(self.pending_move)
@@ -1242,12 +1284,15 @@ class ChessGUI:
                 self.draw_board()
                 self.create_all_pieces()
 
+    # Convert row/col to python-chess square index; returns square int.
     def board_to_chess_square(self, row, col):
         return chess.square(col, row)
 
+    # Convert python-chess square index to row/col; returns (row, col).
     def chess_square_to_board(self, square):
         return chess.square_rank(square), chess.square_file(square)
 
+    # Draw hint markers for legal destinations from one square; returns None.
     def show_move_hints(self, square):
         self.clear_move_hints()
 
@@ -1269,11 +1314,13 @@ class ChessGUI:
 
         self.canvas.tag_raise("move_hint")
 
+    # Remove all move-hint markers from the board; returns None.
     def clear_move_hints(self):
         for hint in self.move_hints:
             self.canvas.delete(hint)
         self.move_hints.clear()
 
+    # Clear queued premoves and redraw the live board; returns None.
     def cancel_premove(self):
         if not self.premove_queue:
             return
@@ -1282,11 +1329,13 @@ class ChessGUI:
         if hasattr(self, 'pieces'):
             self.create_all_pieces()
 
+    # Store SAN move text and append it to history widget; returns None.
     def record_move(self, move):
         # Record the SAN for move. Must be called before board.push(move)
         self.move_san_history.append(self.board.san(move))
         self.append_move_to_widget(len(self.move_san_history) - 1)
 
+    # Create/recreate the move-history panel in sidebar; returns None.
     def draw_history_panel(self, row):
         # Create a  move-history Text widget in the sidebar.
         y_margins = 50
@@ -1337,12 +1386,14 @@ class ChessGUI:
         )
         self.refresh_history_widget()
 
+    # Bind click/hover handlers to a history move tag; returns None.
     def bind_move_tag(self, txt, i):
         tag = f"move_{i}"
         txt.tag_bind(tag, "<Button-1>", lambda _, idx=i: self.on_history_click(idx))
         txt.tag_bind(tag, "<Enter>",    lambda _, t=tag: txt.tag_config(t, underline=True))
         txt.tag_bind(tag, "<Leave>",    lambda _, t=tag: txt.tag_config(t, underline=False))
 
+    # Append one SAN move line into the history widget; returns None.
     def append_move_to_widget(self, i):
         # Add a single newly-recorded move to the history widget
         txt = self.history_widget
@@ -1368,6 +1419,7 @@ class ChessGUI:
         self.bind_move_tag(txt, i)
         txt.see("end")
 
+    # Update visual highlight between old/new history entries; returns None.
     def update_history_highlight(self, old_index, new_index):
         # Only chhange the two tags whose highlight state changed
         txt = self.history_widget
@@ -1383,6 +1435,7 @@ class ChessGUI:
         else:
             txt.see("end")
 
+    # Rebuild entire history widget content from move list; returns None.
     def refresh_history_widget(self):
         # Full rewrite, use only when the widget is first built or reset
         # since relatively costly to rewrite
@@ -1421,6 +1474,7 @@ class ChessGUI:
         else:
             txt.see("end")
 
+    # Jump to a selected historical move position; returns None.
     def on_history_click(self, index):
         # Click on a move entry in the history widget
         # Clicking the last move exits history view (returns to live)
@@ -1432,6 +1486,7 @@ class ChessGUI:
         self.render_history_position(index)
         self.update_history_highlight(old_index, index)
 
+    # Render board snapshot after a chosen ply index; returns None.
     def render_history_position(self, index):
         # Show the board after index half-moves without touching self.board
         start_fen = getattr(self, "start_fen", None)
@@ -1453,6 +1508,7 @@ class ChessGUI:
             code = ("w" if piece.color == chess.WHITE else "b") + piece.symbol().lower()
             self.create_piece(row, col, code, piece.color)
 
+    # Return from history snapshot view to live position; returns None.
     def exit_history_view(self):
         # Go to the live board position
         old_index = self.history_view_index
@@ -1461,6 +1517,7 @@ class ChessGUI:
         self.create_all_pieces()
         self.update_history_highlight(old_index, None)
 
+    # Show promotion picker dialog; returns chosen piece type.
     def ask_promotion(self, is_white):
         # Show a modal with piece images; returns the chosen chess piece type.
         color = "w" if is_white else "b"
@@ -1493,10 +1550,12 @@ class ChessGUI:
         self.root.wait_window(dialog)
         return chosen.get()
 
+    # Check whether the game has reached a terminal state; returns bool.
     def is_over(self):
         # True if the game is over, i.e. threefold repetition
         return self.resigned or self.board.is_game_over() or self.board.is_repetition(3)
 
+    # Show game-over message and lock further play; returns None.
     def check_game_over(self):
         if self.board.is_checkmate():
             winner = "Black" if self.board.turn == chess.WHITE else "White"
@@ -1510,6 +1569,7 @@ class ChessGUI:
         self.engine_thinking = True  # block further moves
         self.menu()  # Refresh menu to update button display
 
+    # Toggle continuous analysis mode on or off; returns None.
     def start_analysis_mode(self):
 
         if self.analysis_mode:
@@ -1538,6 +1598,7 @@ class ChessGUI:
 
         self.menu()
 
+    # Draw analysis UI widgets in the sidebar; returns None.
     def create_analysis_display(self, center, y):
         self.canvas.delete("analysis")
 
@@ -1565,6 +1626,7 @@ class ChessGUI:
         )
         self.canvas.create_window(self.SB + self.PAD, y + 70, window=arrow_toggle, anchor="nw", tags="analysis")
 
+    # Continuously analyze new positions and post updates; returns None.
     def analysis_loop(self):
 
         last_fen = None
@@ -1580,6 +1642,7 @@ class ChessGUI:
                 last_fen = fen
                 self.analysis_engine.send(f"position fen {fen}") # Send position to engine
                 
+                # Forward one analysis update to the Tk main thread; returns None.
                 def send_update(info):
                     self.root.after(0, self.update_analysis_display, info)
 
@@ -1591,6 +1654,7 @@ class ChessGUI:
                 print("Analysis error:", e)
                 break
 
+    # Draw an arrow for the suggested engine move; returns None.
     def draw_suggestion_arrow(self, move_uci):
 
         if not self.show_arrows:
@@ -1610,6 +1674,7 @@ class ChessGUI:
 
         self.canvas.tag_raise("suggestion_arrow", "piece")
 
+    # Toggle visibility of suggestion arrows; returns None.
     def toggle_arrows(self):
         self.show_arrows = self.arrow_var.get()
 
@@ -1623,11 +1688,13 @@ class ChessGUI:
                     print("Error drawing arrow:", e)
                     self.clear_suggestion_arrow()
 
+    # Remove current suggestion arrow from canvas; returns None.
     def clear_suggestion_arrow(self):
         if self.suggestion_arrow:
             self.canvas.delete(self.suggestion_arrow)
             self.suggestion_arrow = None
 
+    # Update eval text and suggested move arrow from analysis; returns None.
     def update_analysis_display(self, info):
         if self.analysis_eval_text is None:
             return
@@ -1656,5 +1723,6 @@ class ChessGUI:
                 self.clear_suggestion_arrow()
         else:
             self.clear_suggestion_arrow()
+
 
 

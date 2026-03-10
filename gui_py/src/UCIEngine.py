@@ -1,9 +1,10 @@
-import subprocess
+﻿import subprocess
 
 # subprocess library: https://docs.python.org/3/library/subprocess.html
 # UCI reference: https://backscattering.de/chess/uci/
 
 class UCIEngine:
+    # Start the UCI engine process and wait for handshake; returns None.
     def __init__(self, engine_path):
         self.engine = subprocess.Popen(
             engine_path,
@@ -16,26 +17,31 @@ class UCIEngine:
         self.send("isready")
         self.receive("readyok")
 
+    # Send one UCI command to the engine stdin; returns None.
     def send(self, command):
         self.engine.stdin.write(command + "\n")
         self.engine.stdin.flush()
     
+    # Read engine output until a target token appears; returns the matching line.
     def receive(self, string):
         while 1:
             line_read = self.engine.stdout.readline()
             if string in line_read:
                 return line_read
             
+    # Ask engine to search for a fixed time; returns the best move in UCI format.
     def search(self, movetime_ms=3000):
         self.send("isready")
         self.receive("readyok")
         self.send(f"go movetime {movetime_ms}")
         return self.receive("bestmove").split()[1]
     
+    # Set a FEN position and search it; returns the best move in UCI format.
     def get_pos(self, fen_str, movetime_ms=3000):
         self.send(f"position fen {fen_str}")
         return self.search(movetime_ms)
     
+    # Set start position plus moves and search; returns the best move in UCI format.
     def get_move(self, moves, movetime_ms=3000):
         if moves:
             moves_str = " ".join(moves)
@@ -44,6 +50,7 @@ class UCIEngine:
             self.send("position startpos")
         return self.search(movetime_ms)
 
+    # Shut down the engine process cleanly if possible; returns None.
     def quit(self):
         try:
             self.send("quit")
@@ -51,6 +58,7 @@ class UCIEngine:
         except Exception:
             self.engine.kill()
 
+    # Stream analysis info from the engine; returns a dict with score, pv, and best_move.
     def analyze(self, movetime_ms=150, callback=None): #Ask engine for evaluation + principal variation. Returns dict: { score: str, pv: [moves], best_move: str }
         self.send("stop")
         self.send("isready")
@@ -94,6 +102,7 @@ class UCIEngine:
 
         return {"score": score, "pv": best_pv, "best_move": best_move}
 
+    # Block until the engine prints readyok; returns None.
     def wait_ready(self):
         while True:
             line = self.engine.stdout.readline().strip()
