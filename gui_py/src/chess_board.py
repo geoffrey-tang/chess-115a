@@ -47,6 +47,7 @@ class ChessGUI:
         self.resigned = False
 
         self.board = chess.Board()
+        self.start_fen = None
         self.analysis_mode = False
         self.analysis_engine = None
         self.analysis_running = False
