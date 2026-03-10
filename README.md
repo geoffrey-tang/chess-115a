@@ -1,162 +1,87 @@
-# Chess Engine with OpenGL
+# Chess Engine
 
-A modular chess engine with OpenGL visualization built with C++17. The project is structured for team collaboration with separate modules for engine logic, graphics rendering, and user interface.
+A powerful chess engine with a beautiful Python GUI interface. Play chess against an intelligent AI opponent!
 
-## Project Structure
+This project consists of two main parts:
+- **C++ Chess Engine**: Fast, intelligent chess AI using bitboards and alpha-beta search
+- **Python GUI**: Beautiful, user-friendly interface to play against the engine
 
-```
-src/
-├── engine/              # Chess game logic
-│   ├── board.cpp/h         - Board representation using bitboards
-│   ├── move_gen.cpp/h      - Move generation
-│   └── constants.h         - Chess constants
-│   └── move_gen.cpp/h      - Move generator
-│
-├── graphics/            # OpenGL rendering (SKELETON - TODO)
-│   ├── renderer.cpp/h      - Window and OpenGL context management
-│   └── shader.cpp/h        - Shader compilation and management
-│
-├── ui/                  # User interface (SKELETON - TODO)
-│   └── board_view.cpp/h    - Chessboard visualization
-│
-└── main.cpp             # Entry point (SKELETON - TODO)
-```
+### Getting Started
 
-## Prerequisites
+To play chess against the AI, you'll need to install both Python (for the GUI) and a C++ compiler (to build the chess engine).
 
-> **💡 Recommended Setup:**  
-> **Linux/macOS** have the simplest setup. **Windows users** may find **WSL (Option C)** easier than native Windows development for this project.
+#### **Step 1: Install Prerequisites**
 
-### 1. Install vcpkg (Package Manager)
+**Python:**
+- **Windows**: Download from [python.org](https://www.python.org/downloads/) (check "Add to PATH" during install)
+- **macOS**: Run `brew install python3` (install [Homebrew](https://brew.sh/) first if needed)
+- **Linux**: Run `sudo apt install python3 python3-pip python3-venv`
 
-**Clone vcpkg in your project directory:**
+**C++ Compiler (needed to build the chess engine):**
+- **Windows**: Install [MinGW-w64](https://www.mingw-w64.org/downloads/) or [Visual Studio](https://visualstudio.microsoft.com/) with C++ tools
+- **macOS**: Run `xcode-select --install`
+- **Linux**: Run `sudo apt install build-essential g++ make`
+
+#### **Step 2: Build the Chess Engine**
+
+The GUI needs the compiled chess engine to work. Build it with:
+
 ```bash
-git clone https://github.com/microsoft/vcpkg.git vcpkg
-cd vcpkg
+make
 ```
 
-**Bootstrap vcpkg:**
+> **Note for Windows users:** If using MinGW, you may need to use `mingw32-make` instead of `make`
 
-**Linux/WSL:**
-```bash
-./bootstrap-vcpkg.sh
-```
+This creates `build/chess_cli` which the GUI uses for the AI opponent.
 
-**macOS:**
-```bash
-./bootstrap-vcpkg.sh
-```
+#### **Step 3: Set Up the GUI**
 
-**Windows:**
+Open your terminal/command prompt in this folder and run:
+
+**Windows (PowerShell):**
 ```powershell
-.\bootstrap-vcpkg.bat
+cd gui_py
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-### 2. Install System Dependencies
-
-#### Linux/WSL (Ubuntu/Debian):
+**macOS/Linux:**
 ```bash
-# Install all required dependencies in one command
-sudo apt install build-essential cmake make pkg-config \
-  mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev \
-  libxinerama-dev libxcursor-dev xorg-dev \
-  curl zip unzip tar
+cd gui_py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-#### macOS:
-```bash
-# Install CMake
-brew install cmake
-
-# Install Xcode Command Line Tools (C++ compiler + build tools)
-xcode-select --install
-```
-
-#### Windows:
-**Option A: MinGW-w64 + CMake (Recommended - simpler compatibility)**
-1. Install [CMake for Windows](https://cmake.org/download/)
-2. Install [MinGW-w64](https://www.mingw-w64.org/downloads/) (or via [MSYS2](https://www.msys2.org/))
-3. Add MinGW bin directory to PATH
-4. MinGW uses GCC, so code compiles without modifications
-
-**Option B: Visual Studio**
-1. Install [Visual Studio 2019 or later](https://visualstudio.microsoft.com/downloads/) (Community Edition is free)
-   - During installation, select "Desktop development with C++"
-   - This includes CMake, C++ compiler, and Windows SDK
-2. Note: May require source code modifications for MSVC-specific differences
-
-**Option C: WSL (Windows Subsystem for Linux)**
-Follow the Linux/WSL instructions above after [installing WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
-
-## Setup Instructions
-
-### Step 1: Configure the Project
-
-**Linux/WSL/macOS:**
-```bash
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-
-**Windows (PowerShell with MinGW):**
-```powershell
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -G "MinGW Makefiles"
-```
-
-**Windows (PowerShell with Visual Studio):**
-```powershell
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 17 2022"
-```
-*Note: Use "Visual Studio 16 2019" if you have VS 2019*
-
-This will:
-- Download and install dependencies (GLFW, GLAD, OpenGL)
-- Generate build files
-- **First run takes 5-10 minutes** (downloads and builds libraries)
-
-### Step 2: Build the Project
-
-**Linux/WSL/macOS:**
-```bash
-cmake --build build
-```
-
-**Windows (MinGW):**
-```powershell
-cmake --build build
-```
-
-**Windows (Visual Studio):**
-```powershell
-cmake --build build --config Release
-```
-
-**Windows (Visual Studio):**
-Open `build/chess-115a.sln` in Visual Studio and press F5 to build and run.
-
-### Step 3: Run the Program
-
-**Linux/WSL/macOS:**
-```bash
-./build/chess
-```
-
-**Windows (Command Line):**
-```powershell
-# If using Visual Studio generator:
-.\build\Release\chess.exe
-
-# If using MinGW Makefiles generator:
-.\build\chess.exe
-```
-
-## Development Workflow
-
-### Rebuilding After Changes
+#### **Step 4: Run the Game**
 
 ```bash
-# Quick rebuild
-cmake --build build
-
-# Clean rebuild
-cmake --build build --clean-first
+python src/main.py
 ```
+
+The chess GUI should open and you can start playing. 
+
+---
+
+## For Developers
+
+### Building and Testing the Engine
+
+Once you have the prerequisites installed (see Quick Start above), you can:
+
+```bash
+# Build the engine
+make
+
+# Run the engine in CLI mode (for direct UCI commands)
+make run
+
+# Clean build files
+make clean
+
+# Rebuild from scratch
+make rebuild
+```
+
+The compiled engine will be in the `build/` folder as `chess_cli`.
