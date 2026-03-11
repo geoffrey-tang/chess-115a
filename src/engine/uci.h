@@ -12,6 +12,16 @@ struct Game{
     StateStack ss;
 };
 
+struct SearchLimits{
+    int depth = MAX_PLY - 1;
+    int movetime = -1;
+    int wtime = -1;
+    int btime = -1;
+    int winc = 0;
+    int binc = 0;
+    bool infinite = false;
+};
+
 int run_uci_loop();
 
 std::string move_to_uci(Move m);

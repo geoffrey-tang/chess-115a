@@ -24,10 +24,16 @@ std::vector<Move> generate_moves(Board& board, StateStack& ss);
 
 std::vector<Move> generate_captures(Board& board, StateStack& ss);
 
+std::array<std::vector<Move>, 2> generate_split(Board& board, StateStack& ss);
+
 // Make/unmake moves
 void do_move(Board& board, StateStack& ss, Move move);
 
 void undo_move(Board& board, StateStack& ss, Move move);
+
+void do_null_move(Board& board, StateStack& ss);
+
+void undo_null_move(Board& board, StateStack& ss);
 
 // Utilities
 uint8_t king_square(Board& board, uint8_t color);

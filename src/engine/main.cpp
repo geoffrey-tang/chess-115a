@@ -10,9 +10,10 @@
 #include "constants.h"
 #include "eval.h"
 #include "search.h"
+#include "zobrist.h"
 
 int main(void){
-    init();
+    Zobrist::init();
     init_pst();
     return run_uci_loop();
 }
