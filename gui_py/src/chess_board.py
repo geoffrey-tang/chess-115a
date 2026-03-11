@@ -723,6 +723,7 @@ class ChessGUI:
     def clear_menu(self):
         self.canvas.delete("menu_item")
         self.canvas.delete("status")
+        self.canvas.delete("analysis")
 
     # Refresh material and turn/game-status text in sidebar; returns None.
     def update_status(self):
@@ -832,6 +833,16 @@ class ChessGUI:
         btn("Reset to start", self.reset_editor)
         btn("Clear board", self.clear_board)
         btn("Flip board", self.flip_board)
+
+        sep()
+        label("ANALYSIS")
+        analysis_label = "Stop analysis" if self.analysis_mode else "Analysis Board"
+        btn(analysis_label, self.start_analysis_mode)
+
+        if self.analysis_mode:
+            center = self.SB + self.SW // 2
+            self.create_analysis_display(center, self.menu_y)
+            self.menu_y += 110
 
         sep()
         label("GAME MODE")
@@ -1597,7 +1608,10 @@ class ChessGUI:
                 self.analysis_running = True
                 threading.Thread(target = self.analysis_loop, daemon = True).start()
 
-        self.menu()
+        if self.editing:
+            self.board_editor()
+        else:
+            self.menu()
 
     # Draw analysis UI widgets in the sidebar; returns None.
     def create_analysis_display(self, center, y):
