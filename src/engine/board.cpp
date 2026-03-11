@@ -9,29 +9,12 @@
 #include "move_gen.h"
 #include "constants.h"
 #include "uci.h"
+#include "zobrist.h"
 
 Bitboard line_bb[64][64];
 Bitboard between_bb[64][64]; 
 Bitboard ray_bb[64][64];
 Bitboard castle_path[4] = {3ULL << F1, 7ULL << B1, 3ULL << F8, 7ULL << B8}; // W_OO, W_OOO, B_OO, B_OOO
-
-// Initializing constants & lookup tables (not done)
-void init(){
-    for(int sq1 = A1; sq1 <= H8; sq1++){
-        for(int sq2 = A1; sq2 <= H8; sq2++){
-            if(rook_move(sq1, 0) & (1ULL << sq2)){
-                line_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
-                between_bb[sq1][sq2] = (rook_move(sq1, (1ULL << sq2)) & rook_move(sq2, (1ULL << sq1)));
-                ray_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
-            }
-            if(bishop_move(sq1, 0) & (1ULL << sq2)){
-                line_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
-                between_bb[sq1][sq2] = (bishop_move(sq1, (1ULL << sq2)) & bishop_move(sq2, (1ULL << sq1)));
-                ray_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
-            }
-        }
-    }
-}
 
 // Print a single bitboard in an 8x8 grid
 void print_bitboard(Bitboard bitboard){
@@ -115,6 +98,7 @@ void print_board(Board board){
     std::cout << "En passant: " << (board.st->en_passant != 64 ? int_to_algebraic(board.st->en_passant) : "-") << "\n";
     std::cout << "50-move halfmove counter: " << board.st->halfmove << "\n";
     std::cout << "Turn: " << board.st->fullmove << "\n";
+    std::cout << "Zobrist: " << board.st->zobrist << "\n";
 }
 
 // Generate and print the legal movelist for the given Board
@@ -279,6 +263,7 @@ Board get_board(std::string fen){
     get_en_passant_from_fen(fen_tokens[3], board);
     get_moves_from_fen(fen_tokens[4], fen_tokens[5], board);
 
+    board.st->zobrist = compute_zobrist(board);
     
     return board;
 }
@@ -361,6 +346,15 @@ uint8_t piece_on_square(Board& board, uint8_t color, uint8_t sq) {
     for (uint8_t pt = PAWN; pt <= KING; pt++)
         if (board.bb_pieces[color][pt] & m) return pt;
     return NONE;
+}
+
+// Get the piece that is being captured by a move
+uint8_t get_captured_piece(Board& board, Move m) {
+    if(get_move_flags(m) == (EN_PASSANT >> 14)) return PAWN;
+
+    int to = get_to_sq(m);
+    int enemy = !board.to_move;
+    return piece_on_square(board, enemy, to);
 }
 
 // Debugging function that prints all the bitboards of a Board

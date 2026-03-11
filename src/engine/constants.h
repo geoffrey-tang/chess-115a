@@ -4,6 +4,8 @@
 
 #define LAST_BIT 63
 
+constexpr int MAX_HISTORY = 16384;
+
 using Bitboard = uint64_t;
 using Move = uint16_t;
 
@@ -100,4 +102,11 @@ enum MoveFlags : uint16_t{
     PROMOTION = 1 << 14, // 0100 = KNIGHT, 0101 = BISHOP, 0110 = ROOK, 0111 = QUEEN;
     EN_PASSANT = 2 << 14,
     CASTLE = 3 << 14
+};
+
+enum TTFlag : uint8_t { 
+    TT_EMPTY=0, 
+    TT_EXACT=1, 
+    TT_LOWERBOUND=2, // beta cutoff
+    TT_UPPERBOUND=3  // alpha cutoff
 };
