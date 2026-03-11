@@ -183,7 +183,7 @@ class ChessGUI:
                 key = f"{color}{piece}"
                 img = tk.PhotoImage(file=f"pieces/{key}.png")
 
-                scale = img.width() // 80
+                scale = img.width() // 65
                 if scale > 1:
                     img = img.subsample(scale, scale)
 
