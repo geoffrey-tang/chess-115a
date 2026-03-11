@@ -6,12 +6,14 @@
 #include <vector>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
 #include "search.h"
 #include "zobrist.h"
+#include "time_man.h"
 
 static const char* ENGINE_NAME = "chess-115a";
 static const char* ENGINE_AUTHOR = "Team";
@@ -32,19 +34,48 @@ static std::vector<std::string> split_ws(const std::string& s) {
     return out;
 }
 
-static int parse_go_depth(const std::vector<std::string>& tok) {
-    int depth = 5;
+static SearchLimits parse_go(const std::vector<std::string>& tok) {
+    SearchLimits lim;
 
     for (size_t i = 1; i < tok.size(); i++) {
+        if (tok[i] == "movetime") {
+            if (i + 1 < tok.size()) {
+                lim.movetime = std::stoi(tok[i + 1]);
+            }
+            continue;
+        }
         if (tok[i] == "depth") {
             if (i + 1 < tok.size()) {
-                depth = std::stoi(tok[i + 1]);
+                lim.depth = std::stoi(tok[i + 1]);
             }
-            break;
+            continue;
+        }
+        if (tok[i] == "wtime") {
+            if (i + 1 < tok.size()) {
+                lim.wtime = std::stoi(tok[i + 1]);
+            }
+            continue;
+        }
+        if (tok[i] == "btime") {
+            if (i + 1 < tok.size()) {
+                lim.btime = std::stoi(tok[i + 1]);
+            }
+            continue;
+        }
+        if (tok[i] == "winc") {
+            if (i + 1 < tok.size()) {
+                lim.winc = std::stoi(tok[i + 1]);
+            }
+            continue;
+        }
+        if (tok[i] == "binc") {
+            if (i + 1 < tok.size()) {
+                lim.binc = std::stoi(tok[i + 1]);
+            }
+            continue;
         }
     }
-
-    return depth;
+    return lim;
 }
 
 std::string move_to_uci(Move m) {
@@ -114,6 +145,7 @@ int run_uci_loop() {
     BoardState* new_st = init_state_stack(board, ss);
     StGuard guard(board, new_st);
     TranspositionTable tt;
+    TimeManager tm;
     tt.resize_mb(256);
 
     std::string line;
@@ -137,23 +169,37 @@ int run_uci_loop() {
         }
         else if (cmd == "position") {
             set_position(tok, board, ss);
-            init_state_stack(board, ss);
         }
         else if (cmd == "go") {
-            int depth = parse_go_depth(tok);
+            SearchLimits limits = parse_go(tok);
+            TimeManager time_man;
+            if(limits.movetime >= 0){
+                time_man.init_movetime(limits.movetime);
+            }
+            else if(limits.wtime >= 0 && limits.btime >= 0) {
+                time_man.init_clock(board.to_move == WHITE ? limits.wtime : limits.btime, 
+                                    board.to_move == WHITE ? limits.winc : limits.binc);
+            }
+            else{
+                time_man.init_depth();
+            }
+
             SearchStats stats{};
             auto start = std::chrono::steady_clock::now();
-            SearchResult r = iter_deepening(board, tt, stats, depth);
+            time_man.start_clock();
+            SearchResult r = iter_deepening(board, tt, stats, time_man, limits.depth);
             auto end = std::chrono::steady_clock::now();
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            uint64_t nps = (ms > 0) ? (stats.nodes * 1000ULL) / ms : 0;
 
             // r.score_cp is from side to move perspective (negamax)
             // UCI usually expects score from side to move so its fine
             std::cout 
-                << "info depth " << depth  
+                << "info depth " << stats.depth  
                 << " seldepth " << stats.seldepth 
                 << " nodes " << stats.nodes
                 << " time " << ms
+                << " nps " << nps
                 << " score cp " << r.score_cp << "\n";
 
             if (r.best_move == 0) {
@@ -166,8 +212,8 @@ int run_uci_loop() {
             print_board(board);
         }
         else if (cmd == "perft"){
-            int depth = parse_go_depth(tok);
-            perft_divide(board, depth);
+            SearchLimits limits = parse_go(tok);
+            perft_divide(board, limits.depth);
         }
         else if (cmd == "quit") {
             break;

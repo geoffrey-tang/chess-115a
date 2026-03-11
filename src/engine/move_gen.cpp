@@ -436,6 +436,34 @@ void undo_move(Board& board, StateStack& ss, Move move){
     ss.ply--;
 }
 
+/*void do_null_move(Board& board, StateStack& ss){
+    uint8_t color = board.to_move;
+    uint8_t old_ep = board.st->en_passant;
+
+    // define a new board state & push onto stack
+    BoardState* new_st = &ss.states[++ss.ply];
+    new_st->previous   = board.st;
+    new_st->castle     = board.st->castle;
+    new_st->en_passant = 64; //clear en passant by default
+    new_st->halfmove   = board.st->halfmove + 1;
+    new_st->fullmove   = board.st->fullmove;
+    new_st->captured_piece  = NONE;
+    new_st->captured_square = 64;
+    new_st->zobrist = board.st->zobrist;
+
+    board.st = new_st;
+    if(old_ep != 64) board.st->zobrist ^= Zobrist::ep_file[get_file(old_ep)];
+    if(color == BLACK) board.st->fullmove++;
+    board.to_move ^= 1;               // switch side
+    board.st->zobrist ^= Zobrist::side_to_move;
+}
+
+void undo_null_move(Board& board, StateStack& ss){
+    board.to_move ^= 1;               // switch side
+    board.st = board.st->previous;
+    ss.ply--;
+}*/
+
 // Get the square that a certain color's king is on, assuming only 1 king
 uint8_t king_square(Board& board, uint8_t color) {
     Bitboard kbb = board.bb_pieces[color][KING];
@@ -558,42 +586,3 @@ uint8_t pop_lsb(Bitboard& b){
 int popcount(Bitboard bb) {
     return __builtin_popcountll(bb);
 }
-
-
-
-/* might use this for magic bitboards later
-Bitboard rook_mask(uint8_t square){
-    return (((file_a_bb << get_file(square)) | (rank_1_bb << (8 * get_rank(square)))) ^ (1ULL << square)) & ~rook_mask_file & ~rook_mask_rank;
-}
-*/
-
-/*
-OLD (broken) legal() code
-    uint64_t from = 1ULL << get_from_sq(move);
-    uint64_t to = 1ULL << get_to_sq(move);
-    uint8_t flags = get_move_flags(move);
-    uint8_t king = lsb(board.bb_pieces[board.to_move][king]);
-
-    // special en passant check; check for any discovered checks
-    if(flags == EN_PASSANT){
-        uint8_t capture_dir = board.to_move == WHITE ? board.st->en_passant >> 8 : board.st->en_passant << 8;
-        uint64_t capture_sq = 1ULL << capture_dir;
-        Bitboard occupy = ((board.bb_colors[WHITE] | board.bb_colors[BLACK]) ^ from ^ capture_sq) | to;
-
-        // return ortho + diagonal bitboards' overlap with rooks + bishops + queens
-        return !(rook_move(king, occupy) & (board.bb_pieces[!board.to_move][ROOK] | board.bb_pieces[!board.to_move][QUEEN])) 
-            && !(bishop_move(king, occupy) & (board.bb_pieces[!board.to_move][BISHOP] | board.bb_pieces[!board.to_move][QUEEN]));
-    }
-    
-    // castling has been pre-checked in generate_move; if castling check is refactored change this
-
-    // check other moves if they result in self-check
-    if(from == king){
-        Bitboard occupy = ((board.bb_colors[WHITE] | board.bb_colors[BLACK]) ^ from) | to;
-        return !square_attacked(board, to, !board.to_move);
-    }
-    else{
-        Bitboard occupy = ((board.bb_colors[WHITE] | board.bb_colors[BLACK]) ^ from) | to;
-        return !square_attacked(board, king, !board.to_move);
-    }
-*/

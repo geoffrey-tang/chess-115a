@@ -208,3 +208,23 @@ int evaluate(const Board& b) {
     int eg_phase = 24 - mg_phase;
     return ( (mg_score * mg_phase) + (eg_score * eg_phase) ) / 24;
 }
+
+int game_phase(const Board& b){
+    int phase_increment[6] = {0, 1, 1, 2, 4, 0}; 
+    int phase = 0;
+    for(int c = WHITE; c <= BLACK; c++){
+        for(int p = PAWN; p <= KING; p++){
+            Bitboard bb = b.bb_pieces[c][p];
+            while(bb){
+                pop_lsb(bb);
+                phase += phase_increment[p];
+            }
+        }
+    }
+    if(phase > 24) phase = 24;
+    return phase;
+}
+
+int delta_piece_value(int piece, int phase){
+    return (mg_value[piece] * phase + eg_value[piece] * (24 - phase)) / 24;
+}

@@ -16,24 +16,6 @@ Bitboard between_bb[64][64];
 Bitboard ray_bb[64][64];
 Bitboard castle_path[4] = {3ULL << F1, 7ULL << B1, 3ULL << F8, 7ULL << B8}; // W_OO, W_OOO, B_OO, B_OOO
 
-// Initializing constants & lookup tables (not done)
-/*void init(){
-    for(int sq1 = A1; sq1 <= H8; sq1++){
-        for(int sq2 = A1; sq2 <= H8; sq2++){
-            if(rook_move(sq1, 0) & (1ULL << sq2)){
-                line_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
-                between_bb[sq1][sq2] = (rook_move(sq1, (1ULL << sq2)) & rook_move(sq2, (1ULL << sq1)));
-                ray_bb[sq1][sq2] = (rook_move(sq1, 0) & rook_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
-            }
-            if(bishop_move(sq1, 0) & (1ULL << sq2)){
-                line_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, 0)) | (1ULL << sq1) | (1ULL << sq2);
-                between_bb[sq1][sq2] = (bishop_move(sq1, (1ULL << sq2)) & bishop_move(sq2, (1ULL << sq1)));
-                ray_bb[sq1][sq2] = (bishop_move(sq1, 0) & bishop_move(sq2, (1ULL << sq1))) | (1ULL << sq2);
-            }
-        }
-    }
-}*/
-
 // Print a single bitboard in an 8x8 grid
 void print_bitboard(Bitboard bitboard){
     for(int rank = 7; rank >= 0; rank--){

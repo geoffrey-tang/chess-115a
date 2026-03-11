@@ -1,10 +1,14 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 
 #include "board.h"
 #include "move_gen.h"
 #include "constants.h"
+#include "time_man.h"
+
+extern bool stop;
 
 static constexpr int MVV_LVA_PIECE_VALUE[6] = {
     100, // pawn
@@ -22,6 +26,7 @@ struct SearchResult {
 
 struct SearchStats {
     int nodes = 0;
+    int depth = 0;
     int seldepth = 0;
 };
 
@@ -162,16 +167,16 @@ uint64_t perft(Board& b, StateStack& ss, int depth);
 uint64_t perft_divide(Board& b, int depth);
 
 // Main iterative deepening function
-SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, int max_depth);
+SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, TimeManager& tm, int max_depth);
 
 // Main search function, returns the best move
-SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth, Move prev_best = 0);
+SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth, Move prev_best = 0);
 
 // Negamax search through the entire search tree up to depth; implement alpha-beta pruning
-int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth);
+int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth);
 
 // Quiescence search to continue searching through captures, alleviating horizon effect
-int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats);
+int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats, TimeManager& tm);
 
 // Puts a move to the front of a vector of Moves, enabling better move ordering
 void move_to_index(std::vector<Move>& moves, Move m, size_t idx);

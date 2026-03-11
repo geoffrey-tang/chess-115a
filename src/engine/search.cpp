@@ -6,10 +6,13 @@
 #include "constants.h"
 #include "eval.h"
 #include "uci.h"
+#include "time_man.h"
 
 constexpr int MATE = 20000;
 constexpr int MATE_BAND = 1000; // safe range that means mate
 constexpr int ASPIRATION_WINDOW = 30;
+
+bool stop = false;
 
 // check if score is within mate range
 inline bool is_mate_score(int s) {
@@ -31,7 +34,7 @@ inline int score_from_tt(int s, int ply) {
 
 BoardState* init_state_stack(Board& board, StateStack& ss){
     ss.ply = 0;
-    ss.states[0] = board.root;
+    ss.states[0] = *board.st;
     ss.states[0].previous = nullptr;
     return &ss.states[0];
 }
@@ -70,17 +73,21 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
-SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, int max_depth){
+SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, TimeManager& tm, int max_depth){
     tt.new_search();
     SearchHeuristic sh;
     SearchResult pv_move; // principal variation
     pv_move.best_move = 0;
     pv_move.score_cp = 0;
-
     int prev_score = 0; // start centered at 0 cp
     int base_window = ASPIRATION_WINDOW; // in centipawns
+    stop = false;
+    stats.depth = 0;
 
     for(int depth = 1; depth <= max_depth; depth++){
+        if (tm.soft_expired())
+            break;
+        if(stop) break;
         int alpha = -32000;
         int beta  =  32000;
         int current_window = base_window;
@@ -91,7 +98,8 @@ SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats
         }
 
         while(true){
-            SearchResult r = search_root_window(alpha, beta, b, tt, sh, stats, depth, pv_move.best_move);
+            SearchResult r = search_root_window(alpha, beta, b, tt, sh, stats, tm, depth, pv_move.best_move);
+            if(stop) break;
             // fail-low: score <= alpha, too optimistic
             if (r.score_cp <= alpha) {
                 current_window *= 2;
@@ -113,12 +121,14 @@ SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats
             prev_score = pv_move.score_cp;
             break;
         }
+        stats.depth++;
+        if (stop) break;
         if(pv_move.score_cp > 10000) break; // end search early if forced mate
     }
     return pv_move;
 }
 
-SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth, Move prev_best){
+SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth, Move prev_best){
     SearchResult result;
     result.best_move = 0;
     result.score_cp = 0;
@@ -131,17 +141,7 @@ SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTabl
     Move tt_move = 0;
     int tt_score = 0;
 
-    // check transposition tables and tighten window accordingly
-    int alpha_probe = alpha, beta_probe = beta;
-    if (tt.probe(key, depth, alpha_probe, beta_probe, tt_score, tt_move)) {
-        // Root cutoff / exact hit
-        result.best_move = tt_move;
-        result.score_cp = score_from_tt(tt_score, ss.ply);
-        return result;
-    }
-    alpha = alpha_probe; beta = beta_probe;
-
-    // movegen
+     // movegen
     std::vector<Move> moves = generate_moves(b, ss);
     if(moves.empty()){
         result.best_move = 0;
@@ -149,12 +149,33 @@ SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTabl
         return result;
     }
 
+    // check transposition tables and tighten window accordingly
+    int alpha_probe = alpha, beta_probe = beta;
+    bool tt_hit = tt.probe(key, depth, alpha_probe, beta_probe, tt_score, tt_move);
+    bool tt_legal = false;
+    if (tt_move) {
+        tt_legal = std::find(moves.begin(), moves.end(), tt_move) != moves.end();
+    }
+    if (tt_hit && tt_legal) {
+        result.best_move = tt_move;
+        result.score_cp = score_from_tt(tt_score, ss.ply);
+        return result;
+    }
+    alpha = alpha_probe; beta = beta_probe;
+
     // sort moves in order: pv, tt_move, captures, killer 1, killer 2, all other quiet moves in order on history
-    move_to_index(moves, prev_best, 0);
-    size_t start = 1;
-    if (tt_move && tt_move != prev_best && moves.size() > 1) {
+    bool pv_legal = false;
+    if (prev_best) {
+        auto it = std::find(moves.begin(), moves.end(), prev_best);
+        if (it != moves.end()) {
+            move_to_index(moves, prev_best, 0);
+            pv_legal = true;
+        }
+    }
+    size_t start = pv_legal ? 1 : 0;
+    if (tt_move && tt_move != prev_best && moves.size() > 1 && tt_legal) {
         move_to_index(moves, tt_move, 1);
-        start = 2;
+        start++;
     }
     if (moves.size() > start) {
         std::sort(moves.begin() + start, moves.end(), [&](Move amove, Move bmove) {
@@ -164,12 +185,13 @@ SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTabl
     }
 
     // main search loop
-    int best_score = -std::numeric_limits<int>::max();
+    int best_score = -64000;
     Move best_move = moves[0];
     int entry_alpha = alpha;
     for(Move m : moves) {
+        if(stop) break;
         do_move(b, ss, m);
-        int score = -alpha_beta_negamax(-beta, -alpha, b, ss, tt, sh, stats, depth - 1);
+        int score = -alpha_beta_negamax(-beta, -alpha, b, ss, tt, sh, stats, tm, depth - 1);
         undo_move(b, ss, m);
         if(score > best_score){
             best_score = score;
@@ -182,33 +204,41 @@ SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTabl
             result.score_cp  = score;
             return result;
         }
+        if(stop) break;
     }
     TTFlag flag = TT_EXACT;
     if (best_score <= entry_alpha) flag = TT_UPPERBOUND; // fail-low vs entry window
 
+    if (stop) {
+        result.best_move = best_move;
+        result.score_cp = best_score;
+        return result;
+    }
     tt.store(key, depth, score_to_tt(best_score, ss.ply), flag, best_move);
     result.best_move = best_move;
     result.score_cp = best_score;
     return result;
 }
 
-int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, int depth){
+int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth){
+    if(stop) return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
     stats.nodes++;
     if (ss.ply > stats.seldepth) stats.seldepth = ss.ply;
+
+    if ((stats.nodes & 2047) == 0) {
+        if (tm.hard_expired()) {
+            stop = true;
+            return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
+        }
+    }
+
     uint64_t key = b.st->zobrist;
     Move tt_move = 0;
     int tt_score = 0;
 
-    // check the transposititon table and tighten window accordingly
-    int alpha_probe = alpha, beta_probe = beta;
-    if (tt.probe(key, depth, alpha_probe, beta_probe, tt_score, tt_move)) {
-        return score_from_tt(tt_score, ss.ply);
-    }
-    alpha = alpha_probe;
-    beta = beta_probe;
-
     // check for finish
-    if(depth == 0) return quiesce(alpha, beta, b, ss, stats);
+    if(depth == 0) return quiesce(alpha, beta, b, ss, stats, tm);
+
     std::vector<Move> moves = generate_moves(b, ss);
 
     // check/stale mate check
@@ -221,9 +251,18 @@ int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, Transposit
             return 0;
     }
 
+    // check the transposititon table and tighten window accordingly
+    int alpha_probe = alpha, beta_probe = beta;
+    if (tt.probe(key, depth, alpha_probe, beta_probe, tt_score, tt_move)) {
+        return score_from_tt(tt_score, ss.ply);
+    }
+    alpha = alpha_probe;
+    beta = beta_probe;
+
     // sort moves in order: tt_move, captures, killer 1, killer 2, all other quiet moves based on history
-    move_to_index(moves, tt_move, 0);
-    size_t start = (tt_move && !moves.empty()) ? 1 : 0;
+    bool tt_legal = std::find(moves.begin(), moves.end(), tt_move) != moves.end();
+    if (tt_legal) move_to_index(moves, tt_move, 0);
+    size_t start = tt_legal ? 1 : 0;
     
     if(moves.size() > start){    
         std::sort(moves.begin() + start, moves.end(), [&](Move amove, Move bmove) {
@@ -233,32 +272,43 @@ int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, Transposit
     }
 
     // main search loop
-    int best = -std::numeric_limits<int>::max();
+    int best = -64000;
     Move best_move = 0;
     int entry_alpha = alpha;
+    std::vector<Move> quiets_searched;
     for(Move m : moves){
+        if(stop) break;
         do_move(b, ss, m);
-        int score = -alpha_beta_negamax(-beta, -alpha, b, ss, tt, sh, stats, depth - 1); 
+        int score = -alpha_beta_negamax(-beta, -alpha, b, ss, tt, sh, stats, tm, depth - 1); 
         undo_move(b, ss, m);
         if(score > best){
             best = score;
             best_move = m;
         } 
-        // alpha is the lower bound; the best score we can force, so we can ignore anything worse than alpha
-        // here we simply update alpha to represent the best score we can get
-        if(score > alpha) alpha = score; 
 
         // beta is the higher bound; the worst score (for us) they can force, so if we find something better (for us), the opponent can fall back on beta so we ignore this line
         // here we cut off based on beta; if this line results in a better score than beta, then we know that the opponent will not allow this and playing this is just hope chess
         if(score >= beta) { 
             if (!is_capture(b, m)) { // quiet beta cutoff = update heuristics
+                int bonus = 300 * depth - 250;
                 sh.update_killer(m, ss.ply);
-                sh.update_history(m, b.to_move, depth * depth);
+                sh.update_history(m, b.to_move, bonus);
+                for (Move q : quiets_searched)
+                    sh.update_history(q, b.to_move, -bonus);
             }
             tt.store(key, depth, score_to_tt(score, ss.ply), TT_LOWERBOUND, m);
             return score;
         } 
+        
+        // alpha is the lower bound; the best score we can force, so we can ignore anything worse than alpha
+        // here we simply update alpha to represent the best score we can get
+        if(score > alpha) alpha = score; 
+
+        // handling history heuristic maluses
+        if (!is_capture(b, m))
+            quiets_searched.push_back(m);
     }
+    if (stop) return best;
     TTFlag flag = TT_EXACT;
     if (best <= entry_alpha) flag = TT_UPPERBOUND;
     tt.store(key, depth, score_to_tt(best, ss.ply), flag, best_move);
@@ -266,12 +316,22 @@ int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, Transposit
 }
 
 
-int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats){
+int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats, TimeManager& tm){
+    if(stop) return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
+    
     stats.nodes++;
     if (ss.ply > stats.seldepth) stats.seldepth = ss.ply;
+
+    if ((stats.nodes & 2047) == 0) {
+        if (tm.hard_expired()) {
+            stop = true;
+            return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
+        }
+    }
+
     int static_eval = b.to_move == WHITE ? evaluate(b) : -evaluate(b);
     int best = static_eval;
-    if(best >= beta) return best;
+    if(best >= beta) return beta;
     if(best > alpha) alpha = best;
 
     std::vector<Move> captures = generate_captures(b, ss);
@@ -280,13 +340,24 @@ int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats){
             }
         );
     for(Move m : captures){
+        if(stop) break;
+        int phase = game_phase(b);
+        if(phase >= 6){
+            int captured = get_captured_piece(b, m);
+            int gain = delta_piece_value(captured, phase);
+            int margin = 200;
+            if(static_eval + gain + margin < alpha)
+                continue;
+        }
+
         do_move(b, ss, m);
-        int score = -quiesce(-beta, -alpha, b, ss, stats);
+        int score = -quiesce(-beta, -alpha, b, ss, stats, tm);
         undo_move(b, ss, m);
 
-        if(score >= beta) return score;
+        if(score >= beta) return beta;
         if(score > best) best = score;
         if(score > alpha) alpha = score;
+        if (stop) break;
     }
 
     return best;

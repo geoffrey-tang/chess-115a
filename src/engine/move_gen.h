@@ -31,6 +31,10 @@ void do_move(Board& board, StateStack& ss, Move move);
 
 void undo_move(Board& board, StateStack& ss, Move move);
 
+void do_null_move(Board& board, StateStack& ss);
+
+void undo_null_move(Board& board, StateStack& ss);
+
 // Utilities
 uint8_t king_square(Board& board, uint8_t color);
 
