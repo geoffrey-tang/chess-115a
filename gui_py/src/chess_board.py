@@ -1689,7 +1689,7 @@ class ChessGUI:
                 def send_update(info):
                     self.root.after(0, self.update_analysis_display, info)
 
-                self.analysis_engine.analyze(movetime_ms = 150, callback = send_update)
+                self.analysis_engine.analyze(movetime_ms = 1000, callback = send_update)
 
                 time.sleep(0.1)
 
