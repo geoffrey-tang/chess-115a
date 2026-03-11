@@ -1,23 +1,21 @@
-# Python GUI Environment
+# Chess GUI (Python)
 
-This folder contains the Python GUI environment (venv + dependencies).
+Beautiful chess interface powered by Python and ttkbootstrap.
 
-## Setup
+## Quick Setup
 
-### Windows (PowerShell)
-```powershell
-cd gui_py
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python src/main.py
-
-## MacOS
-cd gui_py
+### macOS/Linux
+```bash
+# From the gui_py folder
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
+pip install --upgrade pip
 pip install -r requirements.txt
 python src/main.py
+```
+
+## Dependencies
+
+- **ttkbootstrap**: Modern, themed tkinter widgets
+- **python-chess**: Chess logic and UCI protocol support
 
