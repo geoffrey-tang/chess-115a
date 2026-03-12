@@ -247,6 +247,10 @@ class ChessGUI:
         if not hasattr(self, "player_is_white"):
             return
 
+        # Block interaction when game is over
+        if self.is_over():
+            return
+
         # Block dragging while browsing move history
         if self.history_view_index is not None:
             return
@@ -785,7 +789,7 @@ class ChessGUI:
         board_height = self.square_size * 8
         self.canvas.config(height=board_height + self.palette_height)
 
-        self.board = chess.Board()
+        self.board = chess.Board(self.start_fen) if self.start_fen else chess.Board()
         self.draw_board()
         self.load_images()
         self.create_all_pieces()
