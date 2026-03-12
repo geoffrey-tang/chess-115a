@@ -12,6 +12,7 @@ struct Game{
     StateStack ss;
 };
 
+// Structure for storing timing limits
 struct SearchLimits{
     int depth = MAX_PLY - 1;
     int movetime = -1;
@@ -22,9 +23,12 @@ struct SearchLimits{
     bool infinite = false;
 };
 
+// Main UCI loop
 int run_uci_loop();
 
+// Convert an internal Move to UCI format
 std::string move_to_uci(Move m);
 
+// Convert a UCI move to an internal Move
 Move uci_to_move(Board& b, StateStack& ss, std::string uci);
 

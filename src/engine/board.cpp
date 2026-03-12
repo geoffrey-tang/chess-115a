@@ -11,9 +11,6 @@
 #include "uci.h"
 #include "zobrist.h"
 
-Bitboard line_bb[64][64];
-Bitboard between_bb[64][64]; 
-Bitboard ray_bb[64][64];
 Bitboard castle_path[4] = {3ULL << F1, 7ULL << B1, 3ULL << F8, 7ULL << B8}; // W_OO, W_OOO, B_OO, B_OOO
 
 // Print a single bitboard in an 8x8 grid

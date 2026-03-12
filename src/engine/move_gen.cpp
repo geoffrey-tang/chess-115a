@@ -105,7 +105,7 @@ Bitboard pawn_move(uint8_t square, Board& board, uint8_t color){
 }
 
 // Generates a vector of pseudo-legal moves (basic movement, but not necessarily legal)
-std::vector<Move> generate_pseudo(Board& board, uint8_t color){ // this solution feels awful; find a more elegant way in fewer lines if time permits
+std::vector<Move> generate_pseudo(Board& board, uint8_t color){
     std::vector<Move> movelist;
     uint8_t from, to;
     std::array<Bitboard, 6> pieces = board.bb_pieces[color];
@@ -170,11 +170,12 @@ std::vector<Move> generate_pseudo(Board& board, uint8_t color){ // this solution
             movelist.push_back(set_move(from, to, NORMAL));
         }
     }
-    if(board.st->castle){ // yanderedev tier code; update to a more elegant solution
+    // kind of ugly hard coded solution
+    if(board.st->castle){ 
         if((color == WHITE) && (board.bb_pieces[WHITE][KING] & (1ULL << E1))){
             if( (board.st->castle & WHITE_OO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << H1))){
                 if(!square_attacked(board, E1, BLACK) && !square_attacked(board, F1, BLACK) && !square_attacked(board, G1, BLACK) && !(castle_path[0] & (board.bb_colors[WHITE] | board.bb_colors[BLACK]))){
-                    movelist.push_back(set_move(E1, G1, CASTLE)); // set flags later
+                    movelist.push_back(set_move(E1, G1, CASTLE));
                 }
             }
             if( (board.st->castle & WHITE_OOO) && (board.bb_pieces[WHITE][ROOK] & (1ULL << A1))){
@@ -225,24 +226,6 @@ std::vector<Move> generate_captures(Board& board, StateStack& ss){
     return captures;
 }
 
-std::array<std::vector<Move>, 2> generate_split(Board& board, StateStack& ss){
-    std::vector<Move> pseudo = generate_pseudo(board, board.to_move);
-    std::vector<Move> capture;
-    std::vector<Move> quiet;
-    capture.reserve(pseudo.size());
-    quiet.reserve(pseudo.size());
-    for(Move m : pseudo){
-        if(legal(board, ss, m) && is_capture(board, m)){
-            capture.push_back(m);
-        }
-        else if(legal(board, ss, m)){
-            quiet.push_back(m);
-        }
-    }
-    std::array<std::vector<Move>, 2> out = {capture, quiet};
-    return out;
-}
-
 // Plays a move, and pushes it onto the search stack
 void do_move(Board& board, StateStack& ss, Move move){
     uint8_t color = board.to_move;
@@ -273,7 +256,7 @@ void do_move(Board& board, StateStack& ss, Move move){
     board.st->halfmove = (moved_piece == PAWN || capture) ? 0 : (board.st->halfmove + 1);
 
     // handle en passant captures, normal captures, and non-captures
-    if(get_move_flags(move) == (EN_PASSANT >> 14)){ // ok flags might need to be changed bc right now its X << 14 but get_move_flags returns a 4 bit thingy which won't evaluate to be the same
+    if(get_move_flags(move) == (EN_PASSANT >> 14)){ 
         uint8_t cap_sq = (color == WHITE) ? uint8_t(to - 8) : uint8_t(to + 8);
         board.st->captured_square = cap_sq;
         board.st->captured_piece = PAWN;
@@ -436,34 +419,6 @@ void undo_move(Board& board, StateStack& ss, Move move){
     ss.ply--;
 }
 
-/*void do_null_move(Board& board, StateStack& ss){
-    uint8_t color = board.to_move;
-    uint8_t old_ep = board.st->en_passant;
-
-    // define a new board state & push onto stack
-    BoardState* new_st = &ss.states[++ss.ply];
-    new_st->previous   = board.st;
-    new_st->castle     = board.st->castle;
-    new_st->en_passant = 64; //clear en passant by default
-    new_st->halfmove   = board.st->halfmove + 1;
-    new_st->fullmove   = board.st->fullmove;
-    new_st->captured_piece  = NONE;
-    new_st->captured_square = 64;
-    new_st->zobrist = board.st->zobrist;
-
-    board.st = new_st;
-    if(old_ep != 64) board.st->zobrist ^= Zobrist::ep_file[get_file(old_ep)];
-    if(color == BLACK) board.st->fullmove++;
-    board.to_move ^= 1;               // switch side
-    board.st->zobrist ^= Zobrist::side_to_move;
-}
-
-void undo_null_move(Board& board, StateStack& ss){
-    board.to_move ^= 1;               // switch side
-    board.st = board.st->previous;
-    ss.ply--;
-}*/
-
 // Get the square that a certain color's king is on, assuming only 1 king
 uint8_t king_square(Board& board, uint8_t color) {
     Bitboard kbb = board.bb_pieces[color][KING];
@@ -542,9 +497,8 @@ void update_castling(Board& board, uint8_t color, uint8_t moved_piece, Move move
     }
 }
 
-// Checks a move for legality
+// Checks a move for legality by simpling playing and unplaying a move
 bool legal(Board& board, StateStack& ss, Move move){
-    // this solution is definitely really slow but we just want correctness for now; optimize later
     uint8_t color = board.to_move;
     do_move(board, ss, move);
     bool in_check = square_attacked(board, king_square(board, color), !color);
@@ -552,7 +506,7 @@ bool legal(Board& board, StateStack& ss, Move move){
     return !in_check;
 }
 
-// Check if the destination square is a valid destination
+// Checks if the destination square is a valid destination (wrapping and moving off the board) and returns a bitboard of the destination square
 Bitboard check_dst(int square, int offset){
     int dst = square + offset;
     if(A1 <= dst && dst <= H8){
@@ -565,6 +519,7 @@ Bitboard check_dst(int square, int offset){
     }
 }
 
+// Checks if a move is a capture
 bool is_capture(Board& b, Move m){
     uint64_t to_bb = 1ULL << get_to_sq(m);
     return (b.bb_colors[!b.to_move] & to_bb) != 0;

@@ -3,9 +3,10 @@
 #include <chrono>
 #include <stdio.h>
 
+// Time manager that ensures that engine will not get stuck in an exploding search
 struct TimeManager {
-    int soft_limit_ms = 0;
-    int hard_limit_ms = 0;
+    int soft_limit_ms = 0; // used at iterative deepening to see if we want to try the next depth
+    int hard_limit_ms = 0; // hard cutoff to kill a search mid-search
     bool use_soft_limit = true;
     bool use_hard_limit = true;
     std::chrono::steady_clock::time_point start;
@@ -19,7 +20,8 @@ struct TimeManager {
         return (int)duration_cast<milliseconds>(steady_clock::now() - start).count();
     }
 
-    void init_clock(int time_left_ms, int increment_ms, int moves_to_go = 40) { // if wtime and btime are supplied
+    // Initializes limits for "go" if wtime and btime are supplied
+    void init_clock(int time_left_ms, int increment_ms, int moves_to_go = 40) {
         int safe = std::max(1, time_left_ms);
 
         int mtg = moves_to_go > 0 ? moves_to_go : 40;
@@ -36,7 +38,8 @@ struct TimeManager {
         use_hard_limit = true;
     }
 
-    void init_movetime(int movetime_ms) { // go movetime
+    // Initializes limits for "go movetime"
+    void init_movetime(int movetime_ms) {
         int safe = std::max(1, movetime_ms);
         
         soft_limit_ms = std::max(1, safe * 8 / 10);
@@ -46,7 +49,8 @@ struct TimeManager {
         use_hard_limit = true;
     }
 
-    void init_depth(int emergency_ms = 10000) { // go depth, no wtime/btime supplied
+    // Iniializes limits for "go depth" without wtime or btime
+    void init_depth(int emergency_ms = 10000) {
         soft_limit_ms = 0;
         hard_limit_ms = std::max(1, emergency_ms);
 
@@ -54,6 +58,7 @@ struct TimeManager {
         use_hard_limit = true;
     }
 
+    // Check if limits are reached
     bool soft_expired() { return use_soft_limit && elapsed_ms() >= soft_limit_ms; }
     bool hard_expired() { return use_hard_limit && elapsed_ms() >= hard_limit_ms; }
 };

@@ -14,24 +14,25 @@ constexpr int ASPIRATION_WINDOW = 30;
 
 bool stop = false;
 
-// check if score is within mate range
+// Check if score is within mate range and returns a bool 
 inline bool is_mate_score(int s) {
     return std::abs(s) >= (MATE - MATE_BAND);
 }
 
-// convert a score at current ply to a ply independent score
+// Convert a score at current ply to a ply independent score and returns an int
 inline int score_to_tt(int s, int ply) {
     if (!is_mate_score(s)) return s;
     // If s is +mate, make it slightly smaller as ply increases; if -mate, slightly larger
     return (s > 0) ? (s + ply) : (s - ply);
 }
 
-// convert a stored TT score back to the current ply’s perspective
+// Convert a stored TT score back to the current ply’s perspective and returns an int
 inline int score_from_tt(int s, int ply) {
     if (!is_mate_score(s)) return s;
     return (s > 0) ? (s - ply) : (s + ply);
 }
 
+// Initialization of the search DFS stack
 BoardState* init_state_stack(Board& board, StateStack& ss){
     ss.ply = 0;
     ss.states[0] = *board.st;
@@ -39,6 +40,9 @@ BoardState* init_state_stack(Board& board, StateStack& ss){
     return &ss.states[0];
 }
 
+// Debugging function that generates the number of legal nodes up to a certain depth
+// e.g. startpos perft(1) = 20 (white has 20 moves), perft(2) = 400 (black has 20 moves, so 20 * 20 = 400)
+// https://www.chessprogramming.org/Perft
 uint64_t perft(Board& b, StateStack& ss, int depth){
     if(depth == 0) return 1;
     uint64_t nodes = 0;
@@ -52,6 +56,8 @@ uint64_t perft(Board& b, StateStack& ss, int depth){
     return nodes;
 }
 
+// Variation of perft that lists each move at a certain depth and reports the number of legal nodes for each move
+// https://www.chessprogramming.org/Perft#Divide
 uint64_t perft_divide(Board& b, int depth){
     StateStack ss;
     BoardState* new_st = init_state_stack(b, ss);
@@ -73,6 +79,10 @@ uint64_t perft_divide(Board& b, int depth){
     return total;
 }
 
+// Starts the iterative deepening search up to a depth of max_depth, and returns the final result
+// Includes aspiration windows to tighten the alpha-beta pruning window
+// https://www.chessprogramming.org/Iterative_Deepening
+// https://www.chessprogramming.org/Aspiration_Windows
 SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats, TimeManager& tm, int max_depth){
     tt.new_search();
     SearchHeuristic sh;
@@ -128,6 +138,12 @@ SearchResult iter_deepening(Board& b, TranspositionTable& tt, SearchStats& stats
     return pv_move;
 }
 
+// Helper function that starts the root negamax search
+// Uses transposition tables, MVV-LVA, killer moves, and history heuristics for move ordering
+// https://www.chessprogramming.org/Transposition_Table
+// https://www.chessprogramming.org/MVV-LVA
+// https://www.chessprogramming.org/Killer_Move
+// https://www.chessprogramming.org/History_Heuristic
 SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth, Move prev_best){
     SearchResult result;
     result.best_move = 0;
@@ -220,6 +236,14 @@ SearchResult search_root_window(int alpha, int beta, Board& b, TranspositionTabl
     return result;
 }
 
+// Main negamax search, using alpha-beta pruning to cut out moves that are provably worse than a previously evaluated move
+// https://www.chessprogramming.org/Negamax
+// https://www.chessprogramming.org/Alpha-Beta
+// Includes the following move ordering techniques as well
+// https://www.chessprogramming.org/Transposition_Table
+// https://www.chessprogramming.org/MVV-LVA
+// https://www.chessprogramming.org/Killer_Move
+// https://www.chessprogramming.org/History_Heuristic
 int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, TranspositionTable& tt, SearchHeuristic& sh, SearchStats& stats, TimeManager& tm, int depth){
     if(stop) return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
     stats.nodes++;
@@ -315,7 +339,10 @@ int alpha_beta_negamax(int alpha, int beta, Board& b, StateStack& ss, Transposit
     return best;
 }
 
-
+// Quiescence search, used after the target negamax depth is reached to prevent the horizon effect and only evaluates captures
+// https://www.chessprogramming.org/Quiescence_Search
+// https://www.chessprogramming.org/MVV-LVA
+// https://www.chessprogramming.org/Delta_Pruning
 int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats, TimeManager& tm){
     if(stop) return (b.to_move == WHITE ? evaluate(b) : -evaluate(b));
     
@@ -363,6 +390,7 @@ int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats, T
     return best;
 }
 
+// Moves a Move in a vector of Moves to the specified index
 void move_to_index(std::vector<Move>& moves, Move m, size_t idx){
     if(m == 0 || idx >= moves.size()) return;
     auto it = std::find(moves.begin()+idx, moves.end(), m);
@@ -370,6 +398,7 @@ void move_to_index(std::vector<Move>& moves, Move m, size_t idx){
         std::iter_swap(moves.begin()+idx, it);
 }
 
+// Returns a "score" for a Move, used for move ordering
 int score_move(Board& b, StateStack& ss, SearchHeuristic& sh, Move m){
     if(is_capture(b, m)) return ((MAX_HISTORY * 3) + mvv_lva_score(b, m));
 
@@ -383,6 +412,9 @@ int score_move(Board& b, StateStack& ss, SearchHeuristic& sh, Move m){
     // PV and TT moves will be handled during search
 }
 
+// MVV-LVA (Most Valuable Victim - Least Valuable Attacker) prioritizes captures that involve valuable victims, 
+// then prioritzes captures that involve cheap attackers, putting likely good captures earlier
+// https://www.chessprogramming.org/MVV-LVA
 int mvv_lva_score(Board& b, Move m) {
     int from = get_from_sq(m);
 
@@ -391,7 +423,7 @@ int mvv_lva_score(Board& b, Move m) {
 
     if (attacker == NONE || victim == NONE) return 0;
 
-    // Bigger victim is better, smaller attacker is better
+    // bigger victim is better, smaller attacker is better, but bigger victim is prioritized over smaller attacker
     return 10 * MVV_LVA_PIECE_VALUE[victim] - MVV_LVA_PIECE_VALUE[attacker];
 }
 

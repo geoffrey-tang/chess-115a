@@ -4,6 +4,8 @@
 #include "constants.h"
 #include "move_gen.h"
 
+// Computes and returns a new Zobrist hash on the supplied Board
+// Requires that Zobrist keys have been iniialized
 uint64_t compute_zobrist(const Board& b){
     uint64_t hash = 0;
 

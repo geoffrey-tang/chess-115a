@@ -22,6 +22,7 @@ static const char* ENGINE_AUTHOR = "Team";
 static const std::string STARTPOS_FEN =
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Split a command into tokens
 static std::vector<std::string> split_ws(const std::string& s) {
     std::istringstream iss(s);
     std::vector<std::string> out;
@@ -34,6 +35,7 @@ static std::vector<std::string> split_ws(const std::string& s) {
     return out;
 }
 
+// Parses a "go" command and stores options
 static SearchLimits parse_go(const std::vector<std::string>& tok) {
     SearchLimits lim;
 
@@ -78,6 +80,7 @@ static SearchLimits parse_go(const std::vector<std::string>& tok) {
     return lim;
 }
 
+// Convert an internal Move to a UCI move
 std::string move_to_uci(Move m) {
     std::string s = int_to_algebraic(get_from_sq(m)) + int_to_algebraic(get_to_sq(m));
     uint8_t pp = parse_promotion_flag(m); // returns KNIGHT/BISHOP/ROOK/QUEEN or NONE
@@ -92,6 +95,7 @@ std::string move_to_uci(Move m) {
     return s;
 }
 
+// Convert a UCI move to an internal Move
 Move uci_to_move(Board& b, StateStack& ss, std::string uci){
     for(Move m : generate_moves(b, ss)){
         if(move_to_uci(m) == uci){
@@ -101,6 +105,7 @@ Move uci_to_move(Board& b, StateStack& ss, std::string uci){
     return 0;
 }
 
+// Parses a "position" command and sets up the specified position
 static void set_position(const std::vector<std::string>& tok, Board& board, StateStack& ss){
     // "position startpos"
     // "position fen <6 fields>"
@@ -133,11 +138,9 @@ static void set_position(const std::vector<std::string>& tok, Board& board, Stat
             do_move(board, ss, m);
         }
     }
-    // "moves ..." requires make_move() User Story 1 task 1
-    // when we have make_move(board, move), apply them here.
-    // if (i < tok.size() && tok[i] == "moves") { ... }
 }
 
+// Main UCI loop
 int run_uci_loop() {
 
     StateStack ss;
@@ -154,22 +157,36 @@ int run_uci_loop() {
         if (tok.empty()) continue;
 
         const std::string& cmd = tok[0];
-
+        
+        // UCI confirmation
         if (cmd == "uci") {
             std::cout << "id name " << ENGINE_NAME << "\n";
             std::cout << "id author " << ENGINE_AUTHOR << "\n";
             std::cout << "uciok\n";
         }
+        // Ready to move
         else if (cmd == "isready") {
             std::cout << "readyok\n";
         }
+        // Indicates a new game
         else if (cmd == "ucinewgame") {
             board = get_board(STARTPOS_FEN);
             init_state_stack(board, ss);
         }
+        // Set a position
         else if (cmd == "position") {
             set_position(tok, board, ss);
         }
+        // Evaluate and search for a best move in the position
+        // Supported options
+        //     "depth" = search to given depth
+        //     "movetime" = search for N ms
+        //     "wtime" = white has N ms left
+        //     "btime" = black has N ms left
+        //     "winc" = white gains N ms per move
+        //     "binc" = black ganis N ms per move
+        // Unsupported
+        //     "infinite" = search until "stop" is given
         else if (cmd == "go") {
             SearchLimits limits = parse_go(tok);
             TimeManager time_man;
@@ -192,8 +209,6 @@ int run_uci_loop() {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
             uint64_t nps = (ms > 0) ? (stats.nodes * 1000ULL) / ms : 0;
 
-            // r.score_cp is from side to move perspective (negamax)
-            // UCI usually expects score from side to move so its fine
             std::cout 
                 << "info depth " << stats.depth  
                 << " seldepth " << stats.seldepth 
@@ -208,19 +223,22 @@ int run_uci_loop() {
                 std::cout << "bestmove " << move_to_uci(r.best_move) << "\n";
             }
         }
+        // Print full board info
         else if (cmd == "d"){
             print_board(board);
         }
+        // Run perft to depth N, defaults to 5
+        // perft depth N to set depth
         else if (cmd == "perft"){
             SearchLimits limits = parse_go(tok);
-            perft_divide(board, limits.depth);
+            int default_depth = 5;
+            perft_divide(board, limits.depth == MAX_PLY - 1 ? default_depth : limits.depth);
         }
+        // Quit
         else if (cmd == "quit") {
             break;
         }
-        else {
-            // ignore: setoption, stop
-        }
+        // ignore: setoption, stop
     }
 
     return 0;

@@ -18,6 +18,8 @@ struct SplitMix64 {
     }
 };
 
+// Zobrist hashing structure that stores all the necessary pseudorandom numbers
+// https://www.chessprogramming.org/Zobrist_Hashing 
 namespace Zobrist{
     inline std::array<std::array<std::array<uint64_t, 64>, 6>, 2> piece_sq{};
     inline uint64_t side_to_move = 0;          
@@ -39,4 +41,5 @@ namespace Zobrist{
     }
 }
 
+// Using the initialized set of Zobrist keys, compute a new Zobrist hash for the position
 uint64_t compute_zobrist(const Board& b);
