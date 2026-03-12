@@ -1161,6 +1161,15 @@ class ChessGUI:
     # Stop engine-vs-engine mode and return to menu; returns None.
     def stop_bot_game(self):
         self.cleanup_bot_engines()
+        self.board = chess.Board()
+        self.start_fen = None
+        self.last_move = None
+        self.selected_square = None
+        self.move_san_history = []
+        self.history_view_index = None
+        self.history_widget = None
+        self.draw_board()
+        self.create_all_pieces()
         self.menu()
 
     # Toggle board orientation and reposition visible pieces; returns None.
@@ -1507,6 +1516,9 @@ class ChessGUI:
         for move in moves[:index + 1]:
             temp.push(move)
 
+        # Hide the suggestion arrow while browsing history
+        self.canvas.delete("suggestion_arrow")
+
         # Use the move that arrived at this position for the highlight
         saved = self.last_move
         self.last_move = moves[index] if moves else None
@@ -1528,6 +1540,12 @@ class ChessGUI:
         self.draw_board()
         self.create_all_pieces()
         self.update_history_highlight(old_index, None)
+        # Restore the suggestion arrow for the live position
+        if self.analysis_mode and self.suggested_move and self.show_arrows:
+            try:
+                self.draw_suggestion_arrow(str(self.suggested_move))
+            except Exception:
+                pass
 
     # Show promotion picker dialog; returns chosen piece type.
     def ask_promotion(self, is_white):
@@ -1642,13 +1660,23 @@ class ChessGUI:
         self.canvas.create_window(self.SB + self.PAD, y + 70, window=arrow_toggle, anchor="nw", tags="analysis")
 
     # Continuously analyze new positions and post updates; returns None.
+    def get_displayed_fen(self):
+        if self.history_view_index is not None:
+            start_fen = getattr(self, "start_fen", None)
+            temp = chess.Board(start_fen) if start_fen else chess.Board()
+            moves = list(self.board.move_stack)
+            for move in moves[:self.history_view_index + 1]:
+                temp.push(move)
+            return temp.fen()
+        return self.board.fen()
+
     def analysis_loop(self):
 
         last_fen = None
 
         while self.analysis_running:
             try:
-                fen = self.board.fen()
+                fen = self.get_displayed_fen()
 
                 if fen == last_fen:
                     time.sleep(0.1)
@@ -1661,7 +1689,7 @@ class ChessGUI:
                 def send_update(info):
                     self.root.after(0, self.update_analysis_display, info)
 
-                self.analysis_engine.analyze(movetime_ms = 150, callback = send_update)
+                self.analysis_engine.analyze(movetime_ms = 1000, callback = send_update)
 
                 time.sleep(0.1)
 
