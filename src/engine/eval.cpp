@@ -5,7 +5,7 @@ static inline int mirror_sq(int sq) {
     return sq ^ 56;
 }
 
-// values from: https://www.talkchess.com/forum3/viewtopic.php?f=2&t=68311&start=19
+// values & tables from: https://www.talkchess.com/forum3/viewtopic.php?f=2&t=68311&start=19
 // piece values
 int mg_value[6] = {82, 337, 365, 477, 1025,  0};
 int eg_value[6] = {94, 281, 297, 512,  936,  0};
@@ -164,6 +164,8 @@ int* eg_psts[6] = {
 int mg_table[2][6][64]; // [COLOR][PIECE][SQUARE], contains precomputed values for all pieces on all squares
 int eg_table[2][6][64];
 
+// Filling out the PSTs based on square, color, & piece
+// Allows for simpler and faster computation of evaluation
 void init_pst(){
     for(int p = PAWN; p <= KING; p++){
         for(int sq = A1; sq <= H8; sq++){
@@ -177,6 +179,9 @@ void init_pst(){
     }
 }
 
+// Returns an integer evaluation measured in centipawns using piece-square tables and interpolation between midgame and endgame
+// Positive values refer to a white advantage, while negative values refer to a black advantage
+// https://www.chessprogramming.org/Piece-Square_Tables
 int evaluate(const Board& b) {
     int midgame[2] = {0, 0};
     int endgame[2] = {0, 0};
@@ -209,6 +214,8 @@ int evaluate(const Board& b) {
     return ( (mg_score * mg_phase) + (eg_score * eg_phase) ) / 24;
 }
 
+// Returns the game phase based on number of pieces
+// Higher values are closer to midgame, whereas lower values are closer to endgame
 int game_phase(const Board& b){
     int phase_increment[6] = {0, 1, 1, 2, 4, 0}; 
     int phase = 0;
@@ -225,6 +232,8 @@ int game_phase(const Board& b){
     return phase;
 }
 
+// Returns piece values based on phase for delta pruning, where we prune captures that are extremely unlikely to improve the position
+// https://www.chessprogramming.org/Delta_Pruning
 int delta_piece_value(int piece, int phase){
     return (mg_value[piece] * phase + eg_value[piece] * (24 - phase)) / 24;
 }

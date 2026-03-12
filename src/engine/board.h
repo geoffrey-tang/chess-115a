@@ -54,8 +54,6 @@ struct StGuard {
     }
 };
 
-// Initializing constants & lookup tables (not done)
-//void init();
 
 // Print a single bitboard in an 8x8 grid
 void print_bitboard(Bitboard bitboard);
@@ -70,14 +68,19 @@ void print_moves(Board& board, StateStack& ss);
 std::vector<std::string> fen_parse(std::string fen);
 
 // Helper functions for board generation from fen
+// Builds bitboards from a FEN string
 void get_bb_from_fen_pieces(std::string fen_pieces, Board& bb_pieces);
 
+// Gets the side to move from a FEN string
 void get_turn_from_fen(std::string fen_turn, Board& bitboards);
 
+// Gets castling rights from a FEN string
 void get_castle_from_fen(std::string fen_castle, Board& bitboards);
 
+// Get en passant square from a FEN string
 void get_en_passant_from_fen(std::string fen_passant, Board& bitboards);
 
+// Gets halfmove and fullmove counter from a FEN string
 void get_moves_from_fen(std::string fen_halfmove, std::string fen_fullmove, Board& bitboards);
 
 // Generates a Board from a FEN string, and set search tree root

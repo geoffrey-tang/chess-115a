@@ -17,19 +17,24 @@ static constexpr int MVV_LVA_PIECE_VALUE[6] = {
     500, // rook
     900, // queen
     0    // king
-};
+}; // these values don't need to match our PSTs
 
+// Return value of iter_deepning() that contains info about the best move
 struct SearchResult {
     Move best_move;
     int score_cp; // score in centipawns, perspective = side to move (negamax)
 };
 
+// Stat tracker used to print search related info
 struct SearchStats {
-    int nodes = 0;
-    int depth = 0;
-    int seldepth = 0;
+    int nodes = 0; // number of nodes searched
+    int depth = 0; // depth reached in main negamax search
+    int seldepth = 0; // actual deepest branch (including qsearch)
 };
 
+// Killer move & history heuristic structures
+// https://www.chessprogramming.org/Killer_Move
+// https://www.chessprogramming.org/History_Heuristic
 struct SearchHeuristic {
     Move killers[MAX_PLY][2]{};
     int history[2][64][64]{}; // [color][from][to]
@@ -61,6 +66,7 @@ struct SearchHeuristic {
     }
 };
 
+// Structure containing data for a single transposition table entry
 struct TTEntry {
     uint16_t key16 = 0;    // 16-bit verification
     int16_t  score = 0;    
@@ -70,6 +76,8 @@ struct TTEntry {
     uint8_t  age = 0;
 };
 
+// Transposition table; holds previously searched positions to avoid repeatedly searching the same posiions
+// https://www.chessprogramming.org/Transposition_Table
 struct TranspositionTable {
     std::vector<TTEntry> table;
     size_t mask = 0; 
@@ -77,7 +85,8 @@ struct TranspositionTable {
 
     static uint16_t key16(uint64_t key) { return uint16_t(key >> 48); } // Grab the first 16 bits from a hash to use as verification
 
-    // Resize table to a specified MB and round down to the closest power of 2
+    // Resize table to a specified MB and round down to the closest power of 2^N
+    // This allows us to use a mask of N-1 as the key of the transposition table and avoid storing the entire 64-bit Zobrist hash
     void resize_mb(size_t megabytes) {
         const size_t bytes = megabytes * 1024ull * 1024ull;
         size_t entries = bytes / sizeof(TTEntry);
@@ -93,13 +102,16 @@ struct TranspositionTable {
         age = 0;
     }
 
+    // Used to track the age of TTEntries
     void new_search() { ++age; } // Call at the start of each new root search
 
-    void clear() { // Fill table with empty entries
+    // Fill table with empty entries
+    void clear() { 
         std::fill(table.begin(), table.end(), TTEntry{});
         age = 0;
     }
 
+    // Probe the TT for a particular Zobrist hash, updating alpha and beta and the corresponding move/eval, returning a bool indicating success/failure
     bool probe(uint64_t key, int depth, int& alpha, int& beta, int& out_score, Move& out_move) {
         if (table.empty()) return false;
         TTEntry& entry = table[key & mask];
@@ -181,6 +193,8 @@ int quiesce(int alpha, int beta, Board& b, StateStack& ss, SearchStats& stats, T
 // Puts a move to the front of a vector of Moves, enabling better move ordering
 void move_to_index(std::vector<Move>& moves, Move m, size_t idx);
 
+// Gives a move a score used for move ordering
 int score_move(Board& b, StateStack& ss, SearchHeuristic& sh, Move m);
 
+// MVV-LVA implementation to order more valuable captures first
 int mvv_lva_score(Board& b, Move m);
